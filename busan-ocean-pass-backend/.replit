@@ -1,0 +1,40 @@
+# =============================================
+# Replit 설정 파일 - 부산오션패스 백엔드
+# Node.js 20 + Express, 포트 3000 → 80 매핑
+# =============================================
+
+modules = ["nodejs-20"]
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["node", "src/server.js"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[env]
+NODE_ENV = "development"
+
+[workflows]
+
+[[workflows.workflow]]
+name = "서버 시작"
+mode = "sequential"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install && npm start"
+
+[[workflows.workflow]]
+name = "시드 데이터 입력"
+mode = "sequential"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run seed"

@@ -1,0 +1,30 @@
+{
+  "name": "busan-ocean-pass-backend",
+  "version": "1.0.0",
+  "description": "부산오션패스 - 해양수도 부산 디지털 관광 앱 백엔드 (2026 프롬프트 엔지니어링 경진대회 출품작)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/seeds/seed.js",
+    "check": "node --check src/server.js"
+  },
+  "keywords": ["busan", "ocean", "tourism", "stamp", "qr", "express", "sqlite"],
+  "author": "부산오션패스 팀",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "sql.js": "^1.12.0",
+    "uuid": "^9.0.1"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^9.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

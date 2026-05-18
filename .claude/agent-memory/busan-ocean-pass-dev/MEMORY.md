@@ -1,0 +1,3 @@
+- [Project Context](project-context.md) — 대회 목적, 기술 스택 고정, 코드 한국어 주석 필수
+- [Phase Progress](phase-progress.md) — 각 Phase 완료 상태 및 설계 결정 기록
+- [User Profile](user-profile.md) — 학생팀 멤버, Replit 환경, 프롬프트 엔지니어링 과정 가시성 중요
