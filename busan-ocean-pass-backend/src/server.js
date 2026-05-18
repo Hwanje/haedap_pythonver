@@ -41,7 +41,8 @@ const db = require('./db/database');
 // ──────────────────────────────────────────────
 
 const app  = express();
-const PORT = parseInt(process.env.PORT, 10) || 3000;
+// Replit은 PORT 환경변수를 문자열로 주입합니다. parseInt로 숫자 변환 후 유효성 검증.
+const PORT = (parseInt(process.env.PORT, 10) || 3000);
 
 // ──────────────────────────────────────────────
 // 공통 미들웨어
@@ -229,12 +230,22 @@ let server;
 
 db.ready.then(() => {
   server = app.listen(PORT, '0.0.0.0', () => {
+    // REPL_SLUG, REPL_OWNER 는 Replit이 자동 주입하는 환경변수입니다.
+    const replSlug  = process.env.REPL_SLUG;
+    const replOwner = process.env.REPL_OWNER;
+    const replUrl   = replSlug && replOwner
+      ? `https://${replSlug}.${replOwner}.repl.co`
+      : null;
+
     console.log('');
     console.log('========================================');
     console.log('  부산오션패스 API 서버 시작');
     console.log(`  포트: ${PORT}`);
     console.log(`  환경: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`  헬스체크: http://localhost:${PORT}/api`);
+    console.log(`  로컬 헬스체크: http://localhost:${PORT}/api`);
+    if (replUrl) {
+      console.log(`  Replit 외부 URL: ${replUrl}/api`);
+    }
     console.log('========================================');
     console.log('');
   });

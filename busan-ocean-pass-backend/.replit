@@ -1,24 +1,47 @@
 # =============================================
 # Replit 설정 파일 - 부산오션패스 백엔드
-# Node.js 20 + Express, 포트 3000 → 80 매핑
+# Node.js 20 + Express + SQLite (sql.js 폴백)
+# 포트: 내부 3000 → Replit 외부 80/443 자동 매핑
 # =============================================
 
+# Replit 실행 버튼(▶)이 누를 때 실행하는 명령
+run = "npm install --prefer-offline && npm start"
+
+# 사용하는 Replit 모듈
 modules = ["nodejs-20"]
 
+# ──────────────────────────────────────────────
+# Nix 패키지 채널 (Node.js 20 LTS 안정 빌드 포함)
+# ──────────────────────────────────────────────
 [nix]
 channel = "stable-24_05"
 
-[deployment]
-run = ["node", "src/server.js"]
-deploymentTarget = "cloudrun"
+# ──────────────────────────────────────────────
+# 기본 환경변수
+# Replit Secrets 탭에서 민감한 값(JWT_SECRET 등)을 덮어씁니다.
+# ──────────────────────────────────────────────
+[env]
+NODE_ENV = "development"
+PORT = "3000"
 
+# ──────────────────────────────────────────────
+# 포트 매핑: 내부 3000 → 외부 HTTP(80)
+# Replit은 내부 포트를 외부에서 자동으로 프록시합니다.
+# ──────────────────────────────────────────────
 [[ports]]
 localPort = 3000
 externalPort = 80
 
-[env]
-NODE_ENV = "development"
+# ──────────────────────────────────────────────
+# 배포 설정 (Replit Deploy 버튼용)
+# ──────────────────────────────────────────────
+[deployment]
+run = ["sh", "-c", "npm install --prefer-offline && npm start"]
+deploymentTarget = "cloudrun"
 
+# ──────────────────────────────────────────────
+# 추가 워크플로우 (Replit Tools → Shell 에서 실행)
+# ──────────────────────────────────────────────
 [workflows]
 
 [[workflows.workflow]]
@@ -38,3 +61,12 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run seed"
+
+[[workflows.workflow]]
+name = "API 헬스체크"
+mode = "sequential"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "curl -s http://localhost:3000/api | node -e \"const d=require('fs').readFileSync('/dev/stdin','utf8'); const j=JSON.parse(d); console.log('상태:', j.status, '|', j.server);\""
