@@ -1,70 +1,88 @@
-# 부산오션패스 백엔드 API
+# 부산오션패스 (Busan Ocean Pass)
 
-> 부산광역시교육청 주최 「사제동행 2026 프롬프트 엔지니어링 학생경진대회」 출품작
+> **2026 부산광역시교육청 사제동행 프롬프트 엔지니어링 학생경진대회 출품작**
 > 테마: 해양수도 부산
-> 한 줄 정의: "부산 해안선을 따라 도장을 찍고, 동백전으로 돌려받는 해양수도 여행 동반자"
+> "부산 해안선을 따라 도장을 찍고, 동백전으로 돌려받는 해양수도 여행 동반자"
+
+---
+
+## 프로젝트 개요
+
+부산오션패스는 부산의 30개 해양 명소를 방문하며 QR 스탬프를 수집하고, 모은 스탬프를 동백전(지역화폐)으로 교환할 수 있는 여행 동반자 서비스입니다.
+
+### 주요 기능
+
+| 기능 | 설명 |
+|------|------|
+| QR + GPS 스탬프 인증 | 명소 현장에서 QR 코드 스캔 + 200m 이내 위치 검증 |
+| 실시간 혼잡도 | 최근 방문 수 기반 여유/보통/혼잡 등급 자동 산출, 혼잡도가 낮을수록 스탬프 2배 지급 |
+| 인터랙티브 지도 | OpenStreetMap 기반 부산 지도에 30개 명소를 카테고리별 아이콘으로 표시 |
+| 위키 제보 시스템 | 사용자가 명소 정보를 제보하면 관리자가 심사 후 승인, 보상 스탬프 지급 |
+| 리워드 교환 | 스탬프 → 동백전 / 부산 굿즈 / QR 쿠폰(외국인 전용) 교환 |
+| 테마 미션 | 해안선 완주, 야경 투어 등 미션 완료 시 보너스 스탬프 |
+| 다국어 지원 | 명소 정보 한/영/일/중 4개 언어 제공 (`?lang=ko\|en\|ja\|zh`) |
+| 관리자 대시보드 | 위키 심사, 사용자 통계, 실시간 현황 |
 
 ---
 
 ## 빠른 시작
 
-### Replit에서 실행
-
-1. Replit에서 이 저장소를 fork 또는 import합니다.
-2. Secrets 탭에서 환경변수를 설정합니다:
-   - `JWT_SECRET` = `busan-ocean-pass-secret-2026`
-3. Shell에서 의존성 설치:
-   ```
-   npm install
-   ```
-4. 초기 데이터 시드:
-   ```
-   npm run seed
-   ```
-5. Run 버튼을 클릭하거나 Shell에서:
-   ```
-   npm start
-   ```
-
-### 로컬에서 실행
+### 로컬 실행
 
 ```bash
-# 저장소 클론
-git clone <repo-url>
-cd busan-ocean-pass-backend
+git clone https://github.com/Hwanje/haedap
+cd haedap/busan-ocean-pass-backend
 
-# 의존성 설치
 npm install
+cp .env.example .env   # JWT_SECRET 등 설정
 
-# 환경변수 설정
-cp .env.example .env
-# .env 파일에서 JWT_SECRET 등 필요한 값 설정
+npm run seed           # 초기 데이터 30개 명소 + 테스트 계정 삽입
+npm start              # http://localhost:3000
+```
 
-# 초기 데이터 시드
-npm run seed
+개발 모드 (파일 변경 시 자동 재시작):
 
-# 서버 시작
-npm start
-
-# 개발 모드 (파일 변경 시 자동 재시작)
+```bash
 npm run dev
 ```
 
-서버가 시작되면 `http://localhost:3000/api`에서 전체 엔드포인트 목록을 확인할 수 있습니다.
+### Replit에서 실행
+
+1. Secrets 탭에서 `JWT_SECRET` 설정
+2. Shell에서 `npm install && npm run seed`
+3. Run 버튼 클릭
+
+서버 기동 후 `http://localhost:3000` 에서 웹 UI, `http://localhost:3000/api` 에서 전체 엔드포인트 목록을 확인할 수 있습니다.
 
 ---
 
 ## 테스트 계정
 
-| 역할 | 이메일 | 비밀번호 | 특이사항 |
-|------|--------|----------|----------|
-| 관리자 | admin@busan-ocean.kr | admin1234 | role=admin, 위키 심사 가능 |
+| 역할 | 이메일 | 비밀번호 | 비고 |
+|------|--------|----------|------|
+| 관리자 | admin@busan-ocean.kr | admin1234 | 위키 심사·통계 접근 가능 |
 | 일반 사용자 | test@example.com | test1234 | 한국어 사용자 |
-| 외국인 사용자 | john@example.com | test1234 | is_foreigner=1, 동백전 대신 QR쿠폰 |
+| 외국인 사용자 | john@example.com | test1234 | 동백전 대신 QR 쿠폰 자동 전환 |
 
 ---
 
-## 전체 API 엔드포인트
+## 웹 UI
+
+로그인 후 4개 탭으로 구성된 대시보드에서 모든 기능을 사용할 수 있습니다.
+
+| 탭 | 설명 |
+|----|------|
+| 명소 목록 | 30개 명소 카드 + 실시간 혼잡도 배지 + 상세 모달 |
+| 🗺 지도 | OpenStreetMap 위에 명소별 카테고리 마커 표시, 마커 클릭 시 팝업 및 상세보기 |
+| 내 진행률 | 방문한 명소 수 / 완료율 / 명소별 방문 현황 |
+| 리워드 카탈로그 | 스탬프 교환 가능 리워드 목록 및 즉시 교환 |
+| 미션 | 테마별 미션 진행률 및 보너스 스탬프 현황 |
+
+관리자 페이지(`/admin.html`)에서 위키 심사 및 통계 대시보드를 확인할 수 있습니다.
+
+---
+
+## API 엔드포인트
 
 ### 인증 (`/api/auth`)
 
@@ -78,10 +96,10 @@ npm run dev
 
 | 메서드 | 경로 | 설명 | 인증 |
 |--------|------|------|------|
-| GET | /api/spots | 명소 목록 + 혼잡도 (`?lang=ko\|en\|ja\|zh`) | 불필요 |
+| GET | /api/spots | 전체 명소 목록 + 혼잡도 | 불필요 |
 | GET | /api/spots/nearby | 주변 명소 (`?lat=&lng=&radius=`) | 불필요 |
-| GET | /api/spots/:id | 명소 상세 | 불필요 |
-| GET | /api/spots/:id/congestion | 실시간 혼잡도 | 불필요 |
+| GET | /api/spots/:id | 명소 상세 (리뷰·위키·통계 포함) | 불필요 |
+| GET | /api/spots/:id/congestion | 실시간 혼잡도 폴링 | 불필요 |
 
 ### 스탬프 (`/api/stamps`)
 
@@ -89,7 +107,7 @@ npm run dev
 |--------|------|------|------|
 | POST | /api/stamps/verify | QR + GPS 스탬프 인증 | 필요 |
 | GET | /api/stamps/my | 내 스탬프 내역 | 필요 |
-| GET | /api/stamps/progress | 전체 명소 방문 진행률 | 필요 |
+| GET | /api/stamps/progress | 명소별 방문 진행률 | 필요 |
 
 ### 리뷰 (`/api/reviews`)
 
@@ -115,7 +133,7 @@ npm run dev
 | 메서드 | 경로 | 설명 | 인증 |
 |--------|------|------|------|
 | GET | /api/rewards/catalog | 리워드 카탈로그 | 필요 |
-| POST | /api/rewards/redeem | 스탬프로 리워드 교환 | 필요 |
+| POST | /api/rewards/redeem | 스탬프 → 리워드 교환 | 필요 |
 | GET | /api/rewards/my | 내 교환 내역 | 필요 |
 
 ### 미션 (`/api/missions`)
@@ -127,20 +145,18 @@ npm run dev
 
 ### 관리자 (`/api/admin`) — 관리자 전용
 
-| 메서드 | 경로 | 설명 | 인증 |
-|--------|------|------|------|
-| GET | /api/admin/wiki/pending | 심사 대기 위키 목록 | 관리자 |
-| PATCH | /api/admin/wiki/:id | 위키 승인 또는 거절 | 관리자 |
-| GET | /api/admin/dashboard | 통계 대시보드 | 관리자 |
-| GET | /api/admin/users | 사용자 목록 | 관리자 |
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | /api/admin/wiki/pending | 심사 대기 위키 목록 |
+| PATCH | /api/admin/wiki/:id | 위키 승인 / 거절 |
+| GET | /api/admin/dashboard | 전체 통계 대시보드 |
+| GET | /api/admin/users | 사용자 목록 |
 
 ---
 
 ## curl 테스트 예제
 
-아래 예제는 서버가 `http://localhost:3000`에서 실행 중일 때 사용할 수 있습니다.
-
-### 1. 로그인
+### 로그인
 
 ```bash
 curl -X POST http://localhost:3000/api/auth/login \
@@ -148,87 +164,53 @@ curl -X POST http://localhost:3000/api/auth/login \
   -d '{"email":"test@example.com","password":"test1234"}'
 ```
 
-응답에서 `token` 값을 복사해두세요. 이후 요청에서 `TOKEN` 자리에 붙여넣으세요.
+응답의 `token` 값을 이후 요청 `TOKEN` 자리에 사용하세요.
 
-### 2. 명소 목록 조회 (한국어)
-
-```bash
-curl http://localhost:3000/api/spots?lang=ko
-```
-
-### 3. 스탬프 인증 (해운대해수욕장, GPS 검증 포함)
+### 스탬프 인증 (해운대, GPS 포함)
 
 ```bash
-# 먼저 QR 코드 확인: 해운대 = QR_SPOT_01
 curl -X POST http://localhost:3000/api/stamps/verify \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer TOKEN" \
-  -d '{
-    "qr_code": "QR_SPOT_01",
-    "user_lat": 35.1587,
-    "user_lng": 129.1604
-  }'
+  -d '{"qr_code":"QR_SPOT_01","user_lat":35.1587,"user_lng":129.1604}'
 ```
 
-### 4. 위키 제보 작성
+### 주변 명소 검색
+
+```bash
+curl "http://localhost:3000/api/spots/nearby?lat=35.1587&lng=129.1604&radius=2000"
+```
+
+### 위키 제보
 
 ```bash
 curl -X POST http://localhost:3000/api/wiki \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer TOKEN" \
-  -d '{
-    "title": "광안리 야경 최고 포인트",
-    "content": "광안리 해수욕장 동쪽 끝 방파제에서 바라보는 광안대교 야경이 정말 아름답습니다. 삼각대 가져오시면 멋진 사진 찍으실 수 있어요!",
-    "category": "hidden_spot"
-  }'
+  -d '{"title":"광안리 야경 포인트","content":"동쪽 방파제가 광안대교 뷰 최고!","category":"hidden_spot"}'
 ```
 
-### 5. 관리자 로그인 후 위키 승인
+### 관리자: 위키 승인
 
 ```bash
-# 관리자 로그인
 ADMIN_TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@busan-ocean.kr","password":"admin1234"}' | \
   grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 
-# 대기 중인 위키 목록 확인
-curl http://localhost:3000/api/admin/wiki/pending \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# 위키 승인 (WIKI_ID를 실제 ID로 교체)
 curl -X PATCH http://localhost:3000/api/admin/wiki/WIKI_ID \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -d '{"action":"approve","reward_stamps":15,"admin_note":"훌륭한 정보입니다!"}'
 ```
 
-### 6. 리워드 카탈로그 조회 및 교환
+### 리워드 교환
 
 ```bash
-# 카탈로그 조회 (외국인 모드 확인 포함)
-curl http://localhost:3000/api/rewards/catalog \
-  -H "Authorization: Bearer TOKEN"
-
-# 동백전 3,000원 교환 (10스탬프 필요)
 curl -X POST http://localhost:3000/api/rewards/redeem \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer TOKEN" \
   -d '{"reward_type":"dongbaekjeon_3000"}'
-```
-
-### 7. 미션 목록 + 진행률 조회
-
-```bash
-curl http://localhost:3000/api/missions \
-  -H "Authorization: Bearer TOKEN"
-```
-
-### 8. 대시보드 통계
-
-```bash
-curl http://localhost:3000/api/admin/dashboard \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
 ---
@@ -239,17 +221,17 @@ curl http://localhost:3000/api/admin/dashboard \
 
 | 최근 60분 방문 수 | 등급 | 스탬프 배율 |
 |-----------------|------|------------|
-| 20건 이상 | 혼잡 (빨강) | 1.0x |
-| 8건 이상 | 보통 (노랑) | 1.5x |
-| 8건 미만 | 여유 (초록) | 2.0x |
+| 20건 이상 | 혼잡 🔴 | ×1.0 |
+| 8건 이상 | 보통 🟡 | ×1.5 |
+| 8건 미만 | 여유 🟢 | ×2.0 |
 
-혼잡도가 낮을수록 더 많은 스탬프를 지급하여 방문객 분산을 유도합니다.
+혼잡도가 낮을수록 스탬프를 더 많이 지급해 방문객 분산을 유도합니다.
 
 ### GPS 인증
 
-- 명소 좌표와 사용자 좌표의 거리를 Haversine 공식으로 계산합니다.
+- Haversine 공식으로 명소 좌표 ↔ 사용자 좌표 거리 계산
 - 반경 200m 초과 시 인증 거부 (403)
-- 같은 명소 24시간 내 재인증 차단
+- 동일 명소 24시간 내 재인증 차단
 
 ### 스탬프 잔액 계산
 
@@ -261,51 +243,9 @@ curl http://localhost:3000/api/admin/dashboard \
       - 리워드 교환 소모 합계
 ```
 
-### 외국인 사용자 처리
+### 외국인 사용자
 
-`is_foreigner=1` 사용자는 동백전/상품권 교환 시 자동으로 가맹점 QR 쿠폰으로 전환됩니다.
-
----
-
-## 트러블슈팅
-
-### better-sqlite3 빌드 실패 (Replit 환경)
-
-Replit의 네이티브 빌드 환경에서 better-sqlite3 컴파일이 실패하는 경우,
-**sql.js로 자동 전환**됩니다. 별도 설정 없이 동일하게 동작합니다.
-
-확인 방법:
-```
-[DB] better-sqlite3 로드 실패, sql.js로 전환: ...
-[DB] sql.js를 사용합니다.
-```
-위 로그가 출력되면 sql.js로 정상 동작 중입니다.
-
-### 포트 충돌
-
-```bash
-# 사용 중인 포트 확인
-lsof -i :3000
-
-# .env에서 포트 변경
-PORT=3001
-```
-
-### 데이터베이스 초기화
-
-```bash
-# SQLite 파일 삭제 후 다시 시드
-rm data/busan-ocean-pass.sqlite
-npm run seed
-```
-
-### JWT_SECRET 미설정
-
-서버 시작 시 다음과 같은 경고가 나타나면 `.env` 파일의 `JWT_SECRET`을 설정하세요:
-
-```
-[경고] JWT_SECRET 환경변수가 설정되지 않았습니다.
-```
+`is_foreigner=1` 계정은 동백전·상품권 교환 시 자동으로 가맹점 QR 쿠폰으로 전환됩니다.
 
 ---
 
@@ -317,23 +257,54 @@ npm run seed
 | Framework | Express 4 |
 | DB | SQLite (better-sqlite3 / sql.js fallback) |
 | 인증 | JWT (jsonwebtoken + bcryptjs) |
-| 환경 | Replit (브라우저 기반) |
+| 지도 | Leaflet.js 1.9 + OpenStreetMap |
+| 환경 | Replit / 로컬 Node |
 
 ---
 
 ## 데이터베이스 스키마 (10개 테이블)
 
-- `users` — 사용자 계정 및 스탬프 잔액
-- `spots` — 부산 해양 명소 30곳 (GPS 좌표, 다국어 정보)
-- `stamp_logs` — 스탬프 인증 기록 (GPS 검증 결과 포함)
-- `reviews` — 명소 리뷰 (사진, 별점, 다국어)
-- `rewards` — 스탬프 교환 내역
-- `wiki_posts` — 사용자 위키 제보 (승인 흐름)
-- `missions` — 테마 미션 정의
-- `mission_completions` — 미션 완료 기록
-- `review_likes` — 리뷰 좋아요 (중복 방지)
-- `wiki_helpful_votes` — 위키 도움됨 투표 (중복 방지)
+| 테이블 | 설명 |
+|--------|------|
+| `users` | 사용자 계정 및 스탬프 잔액 |
+| `spots` | 부산 해양 명소 30곳 (GPS 좌표, 다국어) |
+| `stamp_logs` | 스탬프 인증 기록 (GPS 검증 결과 포함) |
+| `reviews` | 명소 리뷰 (사진, 별점, 다국어) |
+| `rewards` | 스탬프 교환 내역 |
+| `wiki_posts` | 사용자 위키 제보 (승인 흐름) |
+| `missions` | 테마 미션 정의 |
+| `mission_completions` | 미션 완료 기록 |
+| `review_likes` | 리뷰 좋아요 (중복 방지) |
+| `wiki_helpful_votes` | 위키 도움됨 투표 (중복 방지) |
 
 ---
 
-*2026 프롬프트 엔지니어링 학생경진대회 — 해양수도 부산*
+## 트러블슈팅
+
+### better-sqlite3 빌드 실패 (Replit)
+
+Replit 환경에서 네이티브 빌드 실패 시 **sql.js로 자동 전환**됩니다. 별도 설정 불필요.
+
+```
+[DB] better-sqlite3 로드 실패 — sql.js로 대체합니다.
+```
+
+위 로그가 출력되면 정상입니다.
+
+### 포트 충돌
+
+```bash
+lsof -i :3000   # 사용 중인 프로세스 확인
+# .env에서 PORT=3001 로 변경
+```
+
+### 데이터베이스 초기화
+
+```bash
+rm data/busan-ocean-pass.sqlite
+npm run seed
+```
+
+---
+
+*2026 부산광역시교육청 사제동행 프롬프트 엔지니어링 학생경진대회 — 해양수도 부산*
