@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>부산오션패스 관리자</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -353,6 +354,31 @@
     @media (max-width: 600px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
     }
+
+    /* QR 스캔 결과 */
+    .qr-result-box {
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+    .qr-result-box.success { background: #e8f5e9; border: 1.5px solid #a5d6a7; }
+    .qr-result-box.error   { background: #ffebee; border: 1.5px solid #ef9a9a; }
+    .qr-result-icon   { font-size: 2.4rem; margin-bottom: 8px; }
+    .qr-result-name   { font-size: 1.15rem; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+    .qr-result-detail { font-size: .85rem; color: var(--text-mid); margin-bottom: 12px; line-height: 1.5; }
+    .qr-result-stamps {
+      display: inline-block;
+      background: var(--navy-light); color: var(--navy-mid);
+      border-radius: 20px; padding: 6px 18px;
+      font-size: 1rem; font-weight: 700;
+    }
+    .qr-mission-chip {
+      display: inline-block;
+      background: #fff9c4; color: #f57f17;
+      border-radius: 10px; padding: 3px 10px;
+      font-size: .75rem; font-weight: 700;
+      margin: 4px 2px 0;
+    }
   </style>
 </head>
 <body>
@@ -406,6 +432,7 @@
     <button class="tab-btn active" onclick="switchTab('dashboard', this)">대시보드</button>
     <button class="tab-btn" onclick="switchTab('wiki-pending', this)">위키 심사 대기</button>
     <button class="tab-btn" onclick="switchTab('users', this)">사용자 목록</button>
+    <button class="tab-btn" onclick="switchTab('qr-scan', this)">📷 QR 스캔</button>
   </div>
 
   <!-- 대시보드 탭 -->
@@ -437,6 +464,46 @@
       </div>
       <div id="users-container">
         <div class="spinner-wrap"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR 스캔 탭 -->
+  <div id="tab-qr-scan" class="tab-panel">
+    <div class="card" style="max-width:540px;margin:0 auto">
+      <div class="card-header">
+        <h3>📷 사용자 QR 스탬프 스캔</h3>
+      </div>
+      <div style="padding:24px">
+        <p style="font-size:.85rem;color:var(--text-mid);margin-bottom:20px;line-height:1.55">
+          사용자가 발급한 QR 코드를 카메라로 스캔하면 해당 명소의 스탬프가 자동으로 적립됩니다.<br>
+          QR 코드 유효 시간: <strong>5분</strong>
+        </p>
+
+        <!-- 카메라 스캔 영역 -->
+        <div id="qr-reader" style="width:100%;border-radius:12px;overflow:hidden;margin-bottom:16px"></div>
+
+        <div style="display:flex;gap:8px;margin-bottom:20px">
+          <button class="btn btn-primary" id="btn-start-scan" style="flex:1;justify-content:center" onclick="startQrScan()">
+            📷 스캔 시작
+          </button>
+          <button class="btn btn-danger"  id="btn-stop-scan"  style="flex:1;justify-content:center;display:none" onclick="stopQrScan()">
+            ⏹ 스캔 중지
+          </button>
+        </div>
+
+        <!-- 직접 입력 (카메라 불가 환경) -->
+        <details style="margin-bottom:16px">
+          <summary style="font-size:.83rem;color:var(--text-mid);cursor:pointer;padding:6px 0">토큰 직접 입력 (카메라 미사용)</summary>
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <input id="qr-token-input" type="text" placeholder="QR 토큰 값 붙여넣기"
+              style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.88rem"/>
+            <button class="btn btn-primary btn-sm" onclick="scanTokenManual()">확인</button>
+          </div>
+        </details>
+
+        <!-- 스캔 결과 -->
+        <div id="qr-scan-result" style="display:none"></div>
       </div>
     </div>
   </div>
@@ -541,6 +608,7 @@ function switchTab(name, btn) {
     if (name === 'dashboard')    loadDashboard();
     if (name === 'wiki-pending') loadWikiPending();
     if (name === 'users')        loadUsers();
+    if (name === 'qr-scan')      initQrScanTab();
   }
 }
 
@@ -790,6 +858,108 @@ async function loadUsers() {
     `;
   } catch (err) {
     container.innerHTML = `<div class="empty-msg">사용자 목록을 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────
+// QR 스캔
+// ─────────────────────────────────────────
+
+let _html5Qr = null;
+let _scanCooldown = false;
+
+function initQrScanTab() {
+  // 탭 진입 시 별도 초기화 불필요 — 스캔은 버튼으로 시작
+}
+
+async function startQrScan() {
+  if (_html5Qr) return;
+
+  document.getElementById('btn-start-scan').style.display = 'none';
+  document.getElementById('btn-stop-scan').style.display  = '';
+  document.getElementById('qr-scan-result').style.display = 'none';
+
+  _html5Qr = new Html5Qrcode('qr-reader');
+
+  try {
+    await _html5Qr.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      async (decodedText) => {
+        if (_scanCooldown) return;
+        _scanCooldown = true;
+        await processScanResult(decodedText);
+        setTimeout(() => { _scanCooldown = false; }, 3000);
+      },
+      () => {}
+    );
+  } catch (err) {
+    showToast('카메라를 시작할 수 없습니다: ' + err, 'error');
+    stopQrScan();
+  }
+}
+
+async function stopQrScan() {
+  if (_html5Qr) {
+    try { await _html5Qr.stop(); } catch (_) {}
+    _html5Qr.clear();
+    _html5Qr = null;
+  }
+  document.getElementById('qr-reader').innerHTML = '';
+  document.getElementById('btn-start-scan').style.display = '';
+  document.getElementById('btn-stop-scan').style.display  = 'none';
+}
+
+async function scanTokenManual() {
+  const token = document.getElementById('qr-token-input').value.trim();
+  if (!token) { showToast('토큰을 입력하세요.', 'error'); return; }
+  await processScanResult(token);
+}
+
+async function processScanResult(token) {
+  const resultEl = document.getElementById('qr-scan-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light)">처리 중...</div>';
+
+  try {
+    const data = await api('/api/qr/scan', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+
+    const missionsHtml = (data.completed_missions || []).length > 0
+      ? data.completed_missions.map(m =>
+          `<span class="qr-mission-chip">🏅 ${m.name_ko || '미션 달성'}</span>`
+        ).join('')
+      : '';
+
+    resultEl.innerHTML = `
+      <div class="qr-result-box success">
+        <div class="qr-result-icon">✅</div>
+        <div class="qr-result-name">${data.user_nickname}</div>
+        <div class="qr-result-detail">
+          <strong>${data.spot_name}</strong><br>
+          혼잡도: ${data.congestion?.emoji || ''} ${data.congestion?.label || ''} (×${data.multiplier})
+        </div>
+        <div class="qr-result-stamps">+${data.earned_count} 스탬프 → 누적 ${data.new_total_stamps}개</div>
+        ${missionsHtml ? `<div style="margin-top:10px">${missionsHtml}</div>` : ''}
+      </div>`;
+
+    showToast(`${data.user_nickname}님 스탬프 +${data.earned_count}개 적립 완료`, 'success');
+  } catch (err) {
+    const msgMap = {
+      '이미 사용된': '이미 사용된 QR입니다.',
+      '만료': 'QR이 만료됐습니다. 재발급 요청하세요.',
+      '24시간': '24시간 이내 이미 인증된 명소입니다.',
+      '유효하지 않은': '올바르지 않은 QR 코드입니다.',
+    };
+    const msg = Object.entries(msgMap).find(([k]) => err.message?.includes(k))?.[1] || err.message;
+    resultEl.innerHTML = `
+      <div class="qr-result-box error">
+        <div class="qr-result-icon">❌</div>
+        <div class="qr-result-name">스캔 실패</div>
+        <div class="qr-result-detail">${msg}</div>
+      </div>`;
   }
 }
 

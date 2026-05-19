@@ -187,6 +187,17 @@ const CREATE_TABLES_SQL = [
     created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     UNIQUE(user_id, wiki_post_id)
   )`,
+
+  // ─── 11. qr_tokens ────────────────────────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS qr_tokens (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    spot_id     TEXT NOT NULL REFERENCES spots(id) ON DELETE CASCADE,
+    expires_at  TEXT NOT NULL,
+    used_at     TEXT,
+    scanned_by  TEXT REFERENCES users(id),
+    created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )`,
 ];
 
 const CREATE_INDEXES_SQL = [

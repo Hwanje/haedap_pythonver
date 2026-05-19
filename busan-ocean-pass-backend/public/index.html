@@ -6,6 +6,7 @@
   <title>부산오션패스 — 해양수도 여행 동반자</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     /* ─────────────────────────────────────────
        기본 리셋 및 CSS 변수
@@ -803,6 +804,45 @@
       margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
     }
 
+    /* QR 코드 모달 */
+    #qr-modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #qr-modal-overlay.open { display: flex; }
+    .qr-modal-box {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px 28px 24px;
+      width: 100%; max-width: 360px;
+      text-align: center;
+      box-shadow: 0 8px 48px rgba(0,0,0,.3);
+      animation: slideUp .2s ease;
+    }
+    .qr-modal-title  { font-size: 1.15rem; font-weight: 700; color: var(--ocean-deep); margin-bottom: 4px; }
+    .qr-modal-sub    { font-size: .82rem; color: var(--text-mid); margin-bottom: 18px; }
+    #qr-canvas-wrap  { display: flex; justify-content: center; margin-bottom: 16px; }
+    #qr-canvas-wrap canvas, #qr-canvas-wrap img { border-radius: 8px; }
+    .qr-timer {
+      font-size: 1rem; font-weight: 700;
+      color: var(--ocean-mid); margin-bottom: 14px;
+    }
+    .qr-timer.warning { color: var(--danger); }
+    .qr-notice { font-size: .78rem; color: var(--text-light); margin-bottom: 16px; line-height: 1.5; }
+    .qr-stamp-info {
+      background: var(--ocean-light);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: .85rem;
+      color: var(--ocean-deep);
+      margin-bottom: 16px;
+    }
+
     /* 명소 카드 거리 표시 */
     .spot-distance {
       font-size: .73rem;
@@ -908,6 +948,19 @@
   </style>
 </head>
 <body>
+
+<!-- ─── QR 코드 모달 ─── -->
+<div id="qr-modal-overlay" onclick="handleQrOverlayClick(event)">
+  <div class="qr-modal-box">
+    <div class="qr-modal-title" id="qr-modal-title">QR 코드</div>
+    <div class="qr-modal-sub"  id="qr-modal-sub"></div>
+    <div id="qr-canvas-wrap"></div>
+    <div class="qr-stamp-info" id="qr-stamp-info"></div>
+    <div class="qr-timer"  id="qr-timer"></div>
+    <div class="qr-notice">관리자에게 이 QR 코드를 스캔해달라고 요청하세요.<br>스캔 후 스탬프가 자동으로 적립됩니다.</div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeQrModal()">닫기</button>
+  </div>
+</div>
 
 <!-- ─── 명소 상세 모달 ─── -->
 <div class="modal-overlay" id="spotModal" onclick="handleModalOverlayClick(event)">
@@ -1621,6 +1674,10 @@ function renderModalBody(spot) {
     <div class="modal-section-title">위키 정보</div>
     ${wikisHtml}
 
+    <button class="btn btn-success" style="width:100%;justify-content:center;padding:12px;margin-top:8px;font-size:.95rem"
+      onclick="openQrModal('${spot.id}', '${spot.name.replace(/'/g,"\\'")}', ${spot.base_stamp_count || 1})">
+      📲 스탬프 QR 코드 발급
+    </button>
     <a class="modal-map-btn" href="${mapsUrl}" target="_blank" rel="noopener">🗺 카카오맵에서 보기</a>
   `;
 }
@@ -1635,7 +1692,7 @@ function handleModalOverlayClick(e) {
 }
 
 // ESC 키로 모달 닫기
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSpotModal(); });
+// ESC: QR 모달 함수 쪽으로 통합됨
 
 // ─────────────────────────────────────────
 // 진행률 탭
@@ -2005,6 +2062,90 @@ async function submitWiki(e) {
     btn.textContent = '제보 제출하기';
   }
 }
+
+// ─────────────────────────────────────────
+// QR 코드 모달
+// ─────────────────────────────────────────
+
+let _qrTimerInterval = null;
+
+async function openQrModal(spotId, spotName, baseStamps) {
+  const overlay   = document.getElementById('qr-modal-overlay');
+  const wrap      = document.getElementById('qr-canvas-wrap');
+  const timerEl   = document.getElementById('qr-timer');
+  const titleEl   = document.getElementById('qr-modal-title');
+  const subEl     = document.getElementById('qr-modal-sub');
+  const stampInfo = document.getElementById('qr-stamp-info');
+
+  // 초기화
+  wrap.innerHTML = '<div class="spinner-wrap" style="padding:24px"><div class="spinner"></div></div>';
+  timerEl.textContent = '';
+  titleEl.textContent = spotName;
+  subEl.textContent   = '스탬프 QR 코드';
+  stampInfo.textContent = '';
+  clearInterval(_qrTimerInterval);
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const data = await api('/api/qr/generate', {
+      method: 'POST',
+      body: JSON.stringify({ spot_id: spotId }),
+    });
+
+    // QR 이미지 생성
+    wrap.innerHTML = '<div id="qr-actual"></div>';
+    new QRCode(document.getElementById('qr-actual'), {
+      text:          data.token,
+      width:         200,
+      height:        200,
+      colorDark:     '#0a2342',
+      colorLight:    '#ffffff',
+      correctLevel:  QRCode.CorrectLevel.M,
+    });
+
+    stampInfo.innerHTML = `기본 스탬프 <strong style="color:var(--ocean-mid)">${baseStamps}개</strong> (혼잡도 배율 적용)`;
+
+    // 카운트다운
+    let remaining = data.ttl_seconds;
+    const update = () => {
+      if (remaining <= 0) {
+        clearInterval(_qrTimerInterval);
+        timerEl.textContent = '만료됨 — 닫고 다시 발급하세요';
+        timerEl.classList.add('warning');
+        return;
+      }
+      const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+      const s = String(remaining % 60).padStart(2, '0');
+      timerEl.textContent = `유효 시간 ${m}:${s}`;
+      timerEl.classList.toggle('warning', remaining <= 60);
+      remaining--;
+    };
+    update();
+    _qrTimerInterval = setInterval(update, 1000);
+
+  } catch (err) {
+    wrap.innerHTML = `<div style="padding:24px;color:var(--danger);font-size:.88rem">${err.message}</div>`;
+  }
+}
+
+function closeQrModal() {
+  document.getElementById('qr-modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  clearInterval(_qrTimerInterval);
+}
+
+function handleQrOverlayClick(e) {
+  if (e.target === document.getElementById('qr-modal-overlay')) closeQrModal();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeQrModal();
+    closeSpotModal();
+  }
+});
 
 // ─────────────────────────────────────────
 // 페이지 초기화 — 토큰이 있으면 자동 로그인

@@ -32,6 +32,7 @@ const wikiRouter     = require('./routes/wiki');
 const rewardsRouter  = require('./routes/rewards');
 const missionsRouter = require('./routes/missions');
 const adminRouter    = require('./routes/admin');
+const qrRouter       = require('./routes/qr');
 
 // DB 모듈 로드 (better-sqlite3는 동기 초기화, sql.js는 비동기 초기화)
 const db = require('./db/database');
@@ -85,6 +86,7 @@ app.use('/api/wiki',     wikiRouter);
 app.use('/api/rewards',  rewardsRouter);
 app.use('/api/missions', missionsRouter);
 app.use('/api/admin',    adminRouter);
+app.use('/api/qr',       qrRouter);
 
 // ──────────────────────────────────────────────
 // 헬스체크 및 루트 엔드포인트
