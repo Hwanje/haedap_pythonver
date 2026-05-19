@@ -842,6 +842,56 @@
       color: var(--ocean-deep);
       margin-bottom: 16px;
     }
+    .qr-tab-bar {
+      display: flex;
+      background: var(--ocean-foam);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 18px;
+    }
+    .qr-tab-btn {
+      flex: 1;
+      padding: 8px 0;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      font-size: .83rem;
+      font-weight: 600;
+      color: var(--text-mid);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .qr-tab-btn.active { background: var(--ocean-mid); color: #fff; }
+    .qr-panel { display: none; }
+    .qr-panel.active { display: block; }
+    .token-display-box {
+      background: var(--ocean-foam);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: .8rem;
+      color: var(--text-dark);
+      margin-bottom: 10px;
+      user-select: all;
+      letter-spacing: .03em;
+    }
+    .copy-btn {
+      width: 100%;
+      padding: 9px;
+      border: 1.5px solid var(--ocean-mid);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ocean-mid);
+      font-size: .84rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      margin-bottom: 12px;
+    }
+    .copy-btn:hover { background: var(--ocean-mid); color: #fff; }
 
     /* 명소 카드 거리 표시 */
     .spot-distance {
@@ -954,9 +1004,30 @@
   <div class="qr-modal-box">
     <div class="qr-modal-title" id="qr-modal-title">QR 코드</div>
     <div class="qr-modal-sub"  id="qr-modal-sub"></div>
-    <div id="qr-canvas-wrap"></div>
+
+    <!-- 탭 전환 버튼 -->
+    <div class="qr-tab-bar">
+      <button class="qr-tab-btn active" id="qr-tab-btn-qr"    onclick="switchQrTab('qr')">QR 코드</button>
+      <button class="qr-tab-btn"        id="qr-tab-btn-token" onclick="switchQrTab('token')">토큰 표시</button>
+    </div>
+
+    <!-- QR 코드 패널 -->
+    <div class="qr-panel active" id="qr-panel-qr">
+      <div id="qr-canvas-wrap"></div>
+    </div>
+
+    <!-- 토큰 패널 -->
+    <div class="qr-panel" id="qr-panel-token">
+      <p style="font-size:.78rem;color:var(--text-mid);margin-bottom:10px;line-height:1.5">
+        카메라 스캔이 불가한 경우 관리자 페이지의<br>
+        <strong>토큰 직접 입력</strong> 칸에 아래 값을 붙여넣으세요.
+      </p>
+      <div class="token-display-box" id="qr-token-text">—</div>
+      <button class="copy-btn" onclick="copyToken()">📋 토큰 복사</button>
+    </div>
+
     <div class="qr-stamp-info" id="qr-stamp-info"></div>
-    <div class="qr-timer"  id="qr-timer"></div>
+    <div class="qr-timer" id="qr-timer"></div>
     <div class="qr-notice">관리자에게 이 QR 코드를 스캔해달라고 요청하세요.<br>스캔 후 스탬프가 자동으로 적립됩니다.</div>
     <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeQrModal()">닫기</button>
   </div>
@@ -2068,6 +2139,21 @@ async function submitWiki(e) {
 // ─────────────────────────────────────────
 
 let _qrTimerInterval = null;
+let _currentQrToken  = null;
+
+function switchQrTab(tab) {
+  document.getElementById('qr-panel-qr').classList.toggle('active',    tab === 'qr');
+  document.getElementById('qr-panel-token').classList.toggle('active', tab === 'token');
+  document.getElementById('qr-tab-btn-qr').classList.toggle('active',    tab === 'qr');
+  document.getElementById('qr-tab-btn-token').classList.toggle('active', tab === 'token');
+}
+
+function copyToken() {
+  if (!_currentQrToken) return;
+  navigator.clipboard.writeText(_currentQrToken)
+    .then(() => showToast('토큰이 클립보드에 복사됐습니다.', 'success'))
+    .catch(() => showToast('복사 실패 — 직접 선택 후 복사하세요.', 'error'));
+}
 
 async function openQrModal(spotId, spotName, baseStamps) {
   const overlay   = document.getElementById('qr-modal-overlay');
@@ -2077,12 +2163,16 @@ async function openQrModal(spotId, spotName, baseStamps) {
   const subEl     = document.getElementById('qr-modal-sub');
   const stampInfo = document.getElementById('qr-stamp-info');
 
-  // 초기화
+  // 초기화 — QR 탭으로 복귀
+  switchQrTab('qr');
   wrap.innerHTML = '<div class="spinner-wrap" style="padding:24px"><div class="spinner"></div></div>';
-  timerEl.textContent = '';
-  titleEl.textContent = spotName;
-  subEl.textContent   = '스탬프 QR 코드';
+  timerEl.textContent   = '';
+  timerEl.className     = 'qr-timer';
+  titleEl.textContent   = spotName;
+  subEl.textContent     = '스탬프 QR 코드';
   stampInfo.textContent = '';
+  document.getElementById('qr-token-text').textContent = '—';
+  _currentQrToken = null;
   clearInterval(_qrTimerInterval);
 
   overlay.classList.add('open');
@@ -2094,16 +2184,21 @@ async function openQrModal(spotId, spotName, baseStamps) {
       body: JSON.stringify({ spot_id: spotId }),
     });
 
+    _currentQrToken = data.token;
+
     // QR 이미지 생성
     wrap.innerHTML = '<div id="qr-actual"></div>';
     new QRCode(document.getElementById('qr-actual'), {
-      text:          data.token,
-      width:         200,
-      height:        200,
-      colorDark:     '#0a2342',
-      colorLight:    '#ffffff',
-      correctLevel:  QRCode.CorrectLevel.M,
+      text:         data.token,
+      width:        200,
+      height:       200,
+      colorDark:    '#0a2342',
+      colorLight:   '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
     });
+
+    // 토큰 탭에 값 채우기
+    document.getElementById('qr-token-text').textContent = data.token;
 
     stampInfo.innerHTML = `기본 스탬프 <strong style="color:var(--ocean-mid)">${baseStamps}개</strong> (혼잡도 배율 적용)`;
 
