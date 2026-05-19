@@ -701,6 +701,70 @@
     }
     .map-popup-btn:hover { background: var(--ocean-deep); }
 
+    /* 정렬 컨트롤 */
+    .sort-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .sort-bar .sort-label {
+      font-size: .82rem;
+      color: var(--text-mid);
+      font-weight: 600;
+    }
+    .sort-btn {
+      padding: 6px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      background: #fff;
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--text-mid);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .sort-btn.active {
+      background: var(--ocean-mid);
+      color: #fff;
+      border-color: var(--ocean-mid);
+    }
+    .sort-btn:hover:not(.active) {
+      border-color: var(--ocean-bright);
+      color: var(--ocean-bright);
+    }
+    .sort-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* 지도 내 위치 버튼 */
+    .map-locate-btn {
+      position: absolute;
+      top: 12px;
+      right: 54px;
+      z-index: 400;
+      background: #fff;
+      border: 2px solid var(--ocean-mid);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--ocean-mid);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,.18);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background .15s, color .15s;
+    }
+    .map-locate-btn:hover  { background: var(--ocean-mid); color: #fff; }
+    .map-locate-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* 명소 카드 거리 표시 */
+    .spot-distance {
+      font-size: .73rem;
+      color: var(--ocean-bright);
+      font-weight: 700;
+    }
+
     /* 카테고리 아이콘 매핑 */
     .cat-beach   { background: linear-gradient(135deg, #bbdefb, #1e88e5); }
     .cat-port    { background: linear-gradient(135deg, #cfd8dc, #546e7a); }
@@ -885,14 +949,23 @@
 
   <!-- 탭 패널: 명소 목록 -->
   <div id="tab-spots" class="tab-panel active">
-    <div class="section-title">부산 해양 명소 30곳</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div class="section-title" style="margin-bottom:0">부산 해양 명소 30곳</div>
+      <div class="sort-bar">
+        <span class="sort-label">정렬:</span>
+        <button class="sort-btn active" id="sort-default" onclick="sortSpots('default',this)">기본순</button>
+        <button class="sort-btn" id="sort-name"          onclick="sortSpots('name',this)">가나다순</button>
+        <button class="sort-btn" id="sort-dist"          onclick="sortSpots('distance',this)">📍 거리순</button>
+      </div>
+    </div>
     <div id="spots-container">
       <div class="spinner-wrap"><div class="spinner"></div></div>
     </div>
   </div>
 
   <!-- 탭 패널: 지도 -->
-  <div id="tab-map" class="tab-panel">
+  <div id="tab-map" class="tab-panel" style="position:relative">
+    <button class="map-locate-btn" id="map-locate-btn" onclick="locateOnMap(this)">📍 내 위치</button>
     <div id="map"></div>
   </div>
 
@@ -929,7 +1002,9 @@
 // ─────────────────────────────────────────
 let currentToken = localStorage.getItem('op_token') || null;
 let currentUser  = null;
-let tabLoaded    = {};  // 각 탭 데이터 로드 여부
+let tabLoaded    = {};
+let allSpots     = [];
+let userLocation = null;
 
 // ─────────────────────────────────────────
 // 유틸리티
@@ -954,6 +1029,30 @@ async function api(path, options = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw { status: res.status, message: data.message || '오류가 발생했습니다' };
   return data;
+}
+
+/** Haversine 공식으로 두 좌표 사이 거리(km) 계산 */
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2
+    + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** 브라우저 위치 요청 — Promise 반환 */
+function getUserLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('이 브라우저는 위치 서비스를 지원하지 않습니다.'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => reject(new Error('위치 권한이 거부되었거나 위치를 가져올 수 없습니다.'))
+    );
+  });
 }
 
 /** 카테고리 한글 변환 */
@@ -1133,6 +1232,47 @@ async function loadMapTab() {
   }
 }
 
+async function locateOnMap(btn) {
+  btn.disabled = true;
+  btn.textContent = '위치 확인 중...';
+  try {
+    if (!userLocation) userLocation = await getUserLocation();
+    const map = window._busanMap;
+    if (!map) return;
+
+    if (window._myLocCircle)  { map.removeLayer(window._myLocCircle);  window._myLocCircle  = null; }
+    if (window._myLocMarker)  { map.removeLayer(window._myLocMarker);  window._myLocMarker  = null; }
+
+    const { lat, lng } = userLocation;
+
+    window._myLocCircle = L.circle([lat, lng], {
+      radius: 150,
+      color: '#1e88e5',
+      fillColor: '#90caf9',
+      fillOpacity: 0.25,
+      weight: 2,
+    }).addTo(map);
+
+    window._myLocMarker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:18px;height:18px;border-radius:50%;background:#1e88e5;border:3px solid #fff;box-shadow:0 0 0 4px rgba(30,136,229,.35)"></div>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      }),
+      zIndexOffset: 1000,
+    }).addTo(map).bindPopup('<div style="font-weight:700;font-size:.9rem">📍 현재 위치</div>').openPopup();
+
+    map.setView([lat, lng], 14);
+    showToast('현재 위치로 이동했습니다.', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📍 내 위치';
+  }
+}
+
 // ─────────────────────────────────────────
 // 명소 목록 탭
 // ─────────────────────────────────────────
@@ -1143,24 +1283,66 @@ async function loadSpotsTab() {
 
   try {
     const data = await api('/api/spots');
-    const spots = data.spots || [];
+    allSpots = data.spots || [];
 
-    if (spots.length === 0) {
+    if (allSpots.length === 0) {
       container.innerHTML = '<div class="empty-msg">명소 데이터가 없습니다.</div>';
       return;
     }
 
-    // 클릭 시 즉시 표시할 기본 정보 캐시
-    spots.forEach(s => { spotsCache[s.id] = s; });
-
-    container.innerHTML = `<div class="spots-grid">${spots.map(renderSpotCard).join('')}</div>`;
+    allSpots.forEach(s => { spotsCache[s.id] = s; });
+    renderSpotsGrid(allSpots);
   } catch (err) {
     container.innerHTML = `<div class="empty-msg">명소를 불러오지 못했습니다: ${err.message}</div>`;
   }
 }
 
+function renderSpotsGrid(spots) {
+  document.getElementById('spots-container').innerHTML =
+    `<div class="spots-grid">${spots.map(renderSpotCard).join('')}</div>`;
+}
+
+async function sortSpots(mode, btn) {
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (allSpots.length === 0) return;
+
+  if (mode === 'name') {
+    renderSpotsGrid([...allSpots].sort((a, b) => a.name.localeCompare(b.name, 'ko')));
+    return;
+  }
+
+  if (mode === 'distance') {
+    btn.disabled = true;
+    btn.textContent = '위치 확인 중...';
+    try {
+      if (!userLocation) userLocation = await getUserLocation();
+      const sorted = allSpots
+        .map(s => ({ ...s, _distance: haversineDistance(userLocation.lat, userLocation.lng, s.latitude, s.longitude) }))
+        .sort((a, b) => a._distance - b._distance);
+      renderSpotsGrid(sorted);
+      showToast('가장 가까운 명소 순으로 정렬했습니다.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('sort-default').classList.add('active');
+      renderSpotsGrid(allSpots);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📍 거리순';
+    }
+    return;
+  }
+
+  renderSpotsGrid(allSpots);
+}
+
 function renderSpotCard(spot) {
   const c = spot.congestion;
+  const distHtml = spot._distance != null
+    ? `<span class="spot-distance">${spot._distance < 1 ? Math.round(spot._distance * 1000) + 'm' : spot._distance.toFixed(1) + 'km'}</span>`
+    : '';
   return `
   <div class="spot-card" data-spot-id="${spot.id}" onclick="handleSpotCardClick(this)">
     <div class="spot-card-img cat-${spot.category}">
@@ -1173,7 +1355,10 @@ function renderSpotCard(spot) {
     </div>
     <div class="spot-footer">
       ${congestionBadge(c)}
-      <span style="font-size:.75rem;color:var(--text-light)">+${spot.base_stamp_count || 1} 스탬프</span>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+        ${distHtml}
+        <span style="font-size:.75rem;color:var(--text-light)">+${spot.base_stamp_count || 1} 스탬프</span>
+      </div>
     </div>
   </div>`;
 }
