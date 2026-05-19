@@ -836,14 +836,27 @@ async function loadUsers() {
 
   try {
     const data = await api('/api/admin/users');
-    const users = data.users || [];
+    const users = data.data || data.users || [];
 
     if (users.length === 0) {
       container.innerHTML = '<div class="empty-msg">사용자가 없습니다.</div>';
       return;
     }
 
+    const isMaster = data.is_master_admin || false;
+
     container.innerHTML = `
+      ${isMaster ? `
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fff8e1">
+        <div style="font-size:.85rem;font-weight:700;color:#e65100;margin-bottom:10px">🔑 마스터 어드민 — 테스터 계정 지정</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input id="tester-email-input" type="email" placeholder="지정할 계정 이메일"
+            style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem"/>
+          <button class="btn btn-primary btn-sm" onclick="setTesterByEmail(true)">테스터 지정</button>
+          <button class="btn btn-danger  btn-sm" onclick="setTesterByEmail(false)">테스터 해제</button>
+        </div>
+        <div id="tester-result" style="margin-top:8px;font-size:.8rem;color:var(--text-mid)"></div>
+      </div>` : ''}
       <div class="table-wrap">
         <table>
           <thead>
@@ -851,17 +864,19 @@ async function loadUsers() {
               <th>닉네임</th>
               <th>이메일</th>
               <th>권한</th>
-              <th>언어</th>
               <th>스탬프</th>
-              <th>외국인</th>
               <th>가입일</th>
+              <th>작업</th>
             </tr>
           </thead>
           <tbody>
             ${users.map(u => `
               <tr>
-                <td style="font-weight:600">${u.nickname}</td>
-                <td style="color:var(--text-mid)">${u.email}</td>
+                <td style="font-weight:600">
+                  ${u.nickname}
+                  ${u.is_tester ? '<span style="font-size:.7rem;background:#fff9c4;color:#f57f17;padding:1px 7px;border-radius:8px;margin-left:4px;font-weight:700">테스터</span>' : ''}
+                </td>
+                <td style="color:var(--text-mid);font-size:.85rem">${u.email}</td>
                 <td>
                   <span style="font-size:.75rem;padding:2px 8px;border-radius:10px;font-weight:700;
                     background:${u.role === 'admin' ? '#e3f2fd' : '#f5f5f5'};
@@ -869,11 +884,12 @@ async function loadUsers() {
                     ${u.role === 'admin' ? '관리자' : '일반'}
                   </span>
                 </td>
-                <td>${u.language || 'ko'}</td>
                 <td style="font-weight:700;color:var(--navy-mid)">${u.total_stamps || 0}</td>
-                <td>${u.is_foreigner ? '외국인' : '-'}</td>
-                <td style="color:var(--text-light);font-size:.8rem">
-                  ${u.created_at ? u.created_at.substring(0, 10) : '-'}
+                <td style="color:var(--text-light);font-size:.8rem">${u.created_at ? u.created_at.substring(0, 10) : '-'}</td>
+                <td>
+                  <button class="btn btn-primary btn-xs" onclick="openResetPassword('${u.id}','${u.nickname.replace(/'/g,"\\'")}')">
+                    비밀번호 재설정
+                  </button>
                 </td>
               </tr>
             `).join('')}
@@ -883,6 +899,47 @@ async function loadUsers() {
     `;
   } catch (err) {
     container.innerHTML = `<div class="empty-msg">사용자 목록을 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────
+// 비밀번호 재설정
+// ─────────────────────────────────────────
+
+function openResetPassword(userId, nickname) {
+  const newPw = prompt(`${nickname} 계정의 새 비밀번호를 입력하세요 (6자 이상):`);
+  if (!newPw) return;
+  if (newPw.length < 6) { showToast('비밀번호는 6자 이상이어야 합니다.', 'error'); return; }
+  if (!confirm(`${nickname} 계정의 비밀번호를 재설정하시겠습니까?`)) return;
+  api(`/api/admin/users/${userId}/reset-password`, {
+    method: 'PATCH',
+    body: JSON.stringify({ new_password: newPw }),
+  }).then(d => showToast(d.message, 'success'))
+    .catch(e => showToast(e.message, 'error'));
+}
+
+// ─────────────────────────────────────────
+// 테스터 지정 (마스터 어드민 전용)
+// ─────────────────────────────────────────
+
+async function setTesterByEmail(isTester) {
+  const email  = document.getElementById('tester-email-input').value.trim();
+  const result = document.getElementById('tester-result');
+  if (!email) { showToast('이메일을 입력하세요.', 'error'); return; }
+  try {
+    const data = await api('/api/admin/users/tester-by-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, is_tester: isTester }),
+    });
+    result.style.color = 'var(--success)';
+    result.textContent = data.message;
+    showToast(data.message, 'success');
+    tabLoaded.users = false;
+    loadUsers();
+  } catch (e) {
+    result.style.color = 'var(--danger)';
+    result.textContent = e.message;
+    showToast(e.message, 'error');
   }
 }
 

@@ -20,28 +20,58 @@ const { v4: uuidv4 } = require('uuid');
 
 const db = require('../db/database');
 const { authenticateToken } = require('../middleware/auth');
-const { getCongestion, recalculateUserStamps, checkAndCompleteMissions } = require('../utils/helpers');
+const { getCongestion, recalculateUserStamps, checkAndCompleteMissions, haversineDistance } = require('../utils/helpers');
 
 const router = express.Router();
 
-const TOKEN_TTL_MINUTES = 5;
+const TOKEN_TTL_MINUTES  = 5;
+const GPS_RADIUS_METERS  = parseInt(process.env.GPS_VERIFY_RADIUS_METERS, 10) || 200;
 
 // ──────────────────────────────────────────────
 // POST /api/qr/generate — QR 토큰 발급 (사용자)
 // ──────────────────────────────────────────────
 router.post('/generate', authenticateToken, (req, res) => {
-  const { spot_id } = req.body;
+  const { spot_id, user_lat, user_lng } = req.body;
 
   if (!spot_id) {
     return res.status(400).json({ success: false, message: 'spot_id가 필요합니다.' });
   }
 
-  const spot = db.prepare('SELECT id, name_ko, is_active, category FROM spots WHERE id = ?').get(spot_id);
+  const spot = db.prepare('SELECT id, name_ko, is_active, category, latitude, longitude FROM spots WHERE id = ?').get(spot_id);
   if (!spot) {
     return res.status(404).json({ success: false, message: '존재하지 않는 명소입니다.' });
   }
   if (!spot.is_active) {
     return res.status(400).json({ success: false, message: '현재 비활성화된 명소입니다.' });
+  }
+
+  // 테스터 여부 확인
+  const userRow = db.prepare('SELECT is_tester FROM users WHERE id = ?').get(req.user.id);
+  const isTester = userRow && userRow.is_tester === 1;
+
+  // 일반 계정은 GPS 근접 검증 필수
+  if (!isTester) {
+    if (user_lat == null || user_lng == null) {
+      return res.status(400).json({
+        success: false,
+        message: '위치 정보가 필요합니다. GPS를 허용한 뒤 다시 시도해주세요.',
+        require_gps: true,
+      });
+    }
+    const lat = parseFloat(user_lat);
+    const lng = parseFloat(user_lng);
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ success: false, message: '유효하지 않은 GPS 좌표입니다.' });
+    }
+    const distMeters = Math.round(haversineDistance(lat, lng, spot.latitude, spot.longitude));
+    if (distMeters > GPS_RADIUS_METERS) {
+      return res.status(403).json({
+        success: false,
+        message: `명소에서 너무 멀리 있습니다. (현재 ${distMeters}m, 허용 ${GPS_RADIUS_METERS}m 이내)`,
+        distance_meters: distMeters,
+        limit_meters:    GPS_RADIUS_METERS,
+      });
+    }
   }
 
   // 해당 사용자 + 명소의 미사용·미만료 토큰이 이미 있으면 재사용

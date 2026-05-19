@@ -17,11 +17,19 @@
 'use strict';
 
 const express = require('express');
+const bcrypt  = require('bcryptjs');
 const router  = express.Router();
 
 const { requireAdmin }          = require('../middleware/auth');
 const { recalculateUserStamps } = require('../utils/helpers');
 const db                        = require('../db/database');
+
+const MASTER_ADMIN_EMAIL = (process.env.MASTER_ADMIN_EMAIL || '').toLowerCase();
+
+/** 마스터 어드민 여부 확인 */
+function isMasterAdmin(req) {
+  return MASTER_ADMIN_EMAIL && req.user.email.toLowerCase() === MASTER_ADMIN_EMAIL;
+}
 
 // ──────────────────────────────────────────────
 // 전체 라우트에 관리자 인증 적용
@@ -325,24 +333,100 @@ router.get('/dashboard', (req, res) => {
 router.get('/users', (req, res) => {
   const users = db.prepare(`
     SELECT
-      id,
-      nickname,
-      email,
-      language,
-      role,
-      total_stamps,
-      total_cashback,
-      is_foreigner,
-      created_at
+      id, nickname, email, language, role,
+      total_stamps, total_cashback, is_foreigner,
+      is_tester, created_at
     FROM   users
     ORDER  BY created_at DESC
-    LIMIT  100
+    LIMIT  200
   `).all();
 
   return res.json({
-    success: true,
-    count:   users.length,
-    data:    users,
+    success:        true,
+    count:          users.length,
+    data:           users,
+    is_master_admin: isMasterAdmin(req),
+  });
+});
+
+// ──────────────────────────────────────────────
+// PATCH /api/admin/users/:id/reset-password — 비밀번호 재설정 (모든 어드민)
+// ──────────────────────────────────────────────
+router.patch('/users/:id/reset-password', async (req, res) => {
+  const { id } = req.params;
+  const { new_password } = req.body;
+
+  if (!new_password || typeof new_password !== 'string' || new_password.length < 6) {
+    return res.status(400).json({ success: false, message: '새 비밀번호는 6자 이상이어야 합니다.' });
+  }
+
+  const user = db.prepare('SELECT id, email, role FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+
+  // 마스터 어드민 계정은 일반 어드민이 변경 불가
+  if (user.email.toLowerCase() === MASTER_ADMIN_EMAIL && !isMasterAdmin(req)) {
+    return res.status(403).json({ success: false, message: '마스터 어드민 비밀번호는 변경할 수 없습니다.' });
+  }
+
+  const hash = await bcrypt.hash(new_password, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, id);
+
+  return res.json({ success: true, message: `${user.email} 비밀번호가 재설정되었습니다.` });
+});
+
+// ──────────────────────────────────────────────
+// PATCH /api/admin/users/:id/tester — 테스터 지정/해제 (마스터 어드민 전용)
+// ──────────────────────────────────────────────
+router.patch('/users/:id/tester', (req, res) => {
+  if (!isMasterAdmin(req)) {
+    return res.status(403).json({ success: false, message: '마스터 어드민만 테스터를 지정할 수 있습니다.' });
+  }
+
+  const { id } = req.params;
+  const { is_tester } = req.body;
+  const value = is_tester ? 1 : 0;
+
+  const user = db.prepare('SELECT id, email, nickname, role FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+  if (user.role === 'admin') {
+    return res.status(400).json({ success: false, message: '어드민 계정에는 테스터 설정이 적용되지 않습니다.' });
+  }
+
+  db.prepare('UPDATE users SET is_tester = ? WHERE id = ?').run(value, id);
+
+  return res.json({
+    success:  true,
+    message:  `${user.nickname}(${user.email}) 계정을 ${value ? '테스터로 지정' : '테스터 해제'}했습니다.`,
+    is_tester: value,
+  });
+});
+
+// ──────────────────────────────────────────────
+// POST /api/admin/users/tester-by-email — 이메일로 테스터 지정 (마스터 어드민 전용)
+// ──────────────────────────────────────────────
+router.post('/users/tester-by-email', (req, res) => {
+  if (!isMasterAdmin(req)) {
+    return res.status(403).json({ success: false, message: '마스터 어드민만 테스터를 지정할 수 있습니다.' });
+  }
+
+  const { email, is_tester } = req.body;
+  if (!email) return res.status(400).json({ success: false, message: '이메일이 필요합니다.' });
+
+  const user = db.prepare('SELECT id, email, nickname, role FROM users WHERE email = ?')
+    .get(email.trim().toLowerCase());
+  if (!user) return res.status(404).json({ success: false, message: '해당 이메일 계정을 찾을 수 없습니다.' });
+  if (user.role === 'admin') {
+    return res.status(400).json({ success: false, message: '어드민 계정에는 테스터 설정이 적용되지 않습니다.' });
+  }
+
+  const value = is_tester ? 1 : 0;
+  db.prepare('UPDATE users SET is_tester = ? WHERE id = ?').run(value, user.id);
+
+  return res.json({
+    success:   true,
+    message:   `${user.nickname}(${user.email}) 계정을 ${value ? '테스터로 지정' : '테스터 해제'}했습니다.`,
+    user_id:   user.id,
+    is_tester: value,
   });
 });
 

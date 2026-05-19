@@ -320,6 +320,14 @@ function applySchema(dbInstance) {
 
   for (const sql of CREATE_TABLES_SQL)  { dbInstance.exec(sql); }
   for (const sql of CREATE_INDEXES_SQL) { dbInstance.exec(sql); }
+
+  // 컬럼 추가 마이그레이션 (멱등성 보장 — 이미 있으면 에러 무시)
+  const migrations = [
+    'ALTER TABLE users ADD COLUMN is_tester INTEGER NOT NULL DEFAULT 0',
+  ];
+  for (const sql of migrations) {
+    try { dbInstance.exec(sql); } catch (_) { /* 이미 존재하면 무시 */ }
+  }
 }
 
 // ──────────────────────────────────────────────

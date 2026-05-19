@@ -1070,26 +1070,68 @@
       <p>해안선을 따라 도장을 찍고<br>동백전으로 돌려받으세요</p>
     </div>
 
+    <!-- 로그인 / 회원가입 탭 -->
+    <div style="display:flex;gap:4px;background:var(--ocean-foam);border-radius:10px;padding:4px;margin-bottom:20px">
+      <button id="auth-tab-login"    class="sort-btn active" style="flex:1;border-radius:7px" onclick="switchAuthTab('login')">로그인</button>
+      <button id="auth-tab-register" class="sort-btn"        style="flex:1;border-radius:7px" onclick="switchAuthTab('register')">회원가입</button>
+    </div>
+
     <div id="login-error" class="error-msg"></div>
 
-    <form id="login-form" onsubmit="handleLogin(event)">
-      <div class="form-group">
-        <label for="email">이메일</label>
-        <input id="email" type="email" placeholder="test@example.com" required />
-      </div>
-      <div class="form-group">
-        <label for="password">비밀번호</label>
-        <input id="password" type="password" placeholder="비밀번호 입력" required />
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px">
-        로그인
-      </button>
-    </form>
+    <!-- 로그인 폼 -->
+    <div id="auth-panel-login">
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="email">이메일</label>
+          <input id="email" type="email" placeholder="test@example.com" required />
+        </div>
+        <div class="form-group">
+          <label for="password">비밀번호</label>
+          <input id="password" type="password" placeholder="비밀번호 입력" required />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px">
+          로그인
+        </button>
+      </form>
+      <p class="login-hint">
+        테스트 계정: test@example.com / test1234<br>
+        <a href="admin.html">관리자 페이지 바로가기</a>
+      </p>
+    </div>
 
-    <p class="login-hint">
-      테스트 계정: test@example.com / test1234<br>
-      <a href="admin.html">관리자 페이지 바로가기</a>
-    </p>
+    <!-- 회원가입 폼 -->
+    <div id="auth-panel-register" style="display:none">
+      <form id="register-form" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="reg-nickname">닉네임 <span style="color:var(--danger)">*</span></label>
+          <input id="reg-nickname" type="text" placeholder="표시될 이름" required maxlength="20"/>
+        </div>
+        <div class="form-group">
+          <label for="reg-email">이메일 <span style="color:var(--danger)">*</span></label>
+          <input id="reg-email" type="email" placeholder="이메일 주소" required />
+        </div>
+        <div class="form-group">
+          <label for="reg-password">비밀번호 <span style="color:var(--danger)">*</span>
+            <span style="font-weight:400;color:var(--text-light)">(6자 이상)</span>
+          </label>
+          <input id="reg-password" type="password" placeholder="비밀번호 (6자 이상)" required minlength="6"/>
+        </div>
+        <div class="form-group">
+          <label for="reg-password2">비밀번호 확인 <span style="color:var(--danger)">*</span></label>
+          <input id="reg-password2" type="password" placeholder="비밀번호 재입력" required />
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:8px">
+          <input id="reg-foreigner" type="checkbox" style="width:auto;accent-color:var(--ocean-mid)"/>
+          <label for="reg-foreigner" style="margin:0;font-weight:400">외국인 방문객입니다</label>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px">
+          가입하기
+        </button>
+      </form>
+      <p class="login-hint">이미 계정이 있으신가요?
+        <a href="#" onclick="switchAuthTab('login');return false">로그인</a>
+      </p>
+    </div>
   </div>
 </div>
 
@@ -1348,6 +1390,49 @@ function congestionBadge(c) {
 // ─────────────────────────────────────────
 // 인증
 // ─────────────────────────────────────────
+
+/** 로그인 / 회원가입 탭 전환 */
+function switchAuthTab(tab) {
+  document.getElementById('auth-panel-login').style.display    = tab === 'login'    ? '' : 'none';
+  document.getElementById('auth-panel-register').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('auth-tab-login').classList.toggle('active',    tab === 'login');
+  document.getElementById('auth-tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('login-error').style.display = 'none';
+}
+
+/** 회원가입 처리 */
+async function handleRegister(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  const nickname  = document.getElementById('reg-nickname').value.trim();
+  const email     = document.getElementById('reg-email').value.trim();
+  const password  = document.getElementById('reg-password').value;
+  const password2 = document.getElementById('reg-password2').value;
+  const isForeigner = document.getElementById('reg-foreigner').checked ? 1 : 0;
+
+  if (password !== password2) {
+    errEl.textContent = '비밀번호가 일치하지 않습니다.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const data = await api('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ nickname, email, password, is_foreigner: isForeigner }),
+    });
+    currentToken = data.token;
+    currentUser  = data.user;
+    localStorage.setItem('op_token', currentToken);
+    showToast(`${nickname}님, 환영합니다!`, 'success');
+    enterDashboard();
+  } catch (err) {
+    errEl.textContent = err.message || '회원가입에 실패했습니다.';
+    errEl.style.display = 'block';
+  }
+}
 
 /** 로그인 처리 */
 async function handleLogin(e) {
@@ -2179,9 +2264,21 @@ async function openQrModal(spotId, spotName, baseStamps) {
   document.body.style.overflow = 'hidden';
 
   try {
+    // GPS 좌표 취득 시도 (테스터 계정이 아닌 경우 서버가 필수 검증)
+    let gpsPayload = {};
+    try {
+      if (userLocation) {
+        gpsPayload = { user_lat: userLocation.lat, user_lng: userLocation.lng };
+      } else {
+        const pos = await getUserLocation();
+        userLocation = pos;
+        gpsPayload = { user_lat: pos.lat, user_lng: pos.lng };
+      }
+    } catch (_) { /* 테스터 계정은 GPS 없어도 통과 — 일반 계정이면 서버가 reject */ }
+
     const data = await api('/api/qr/generate', {
       method: 'POST',
-      body: JSON.stringify({ spot_id: spotId }),
+      body: JSON.stringify({ spot_id: spotId, ...gpsPayload }),
     });
 
     _currentQrToken = data.token;

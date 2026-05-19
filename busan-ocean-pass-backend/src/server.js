@@ -230,7 +230,29 @@ app.use((err, req, res, _next) => {
  */
 let server;
 
-db.ready.then(() => {
+db.ready.then(async () => {
+  // 마스터 어드민 자동 생성/동기화
+  const masterEmail    = (process.env.MASTER_ADMIN_EMAIL    || '').trim().toLowerCase();
+  const masterPassword = (process.env.MASTER_ADMIN_PASSWORD || '').trim();
+  if (masterEmail && masterPassword) {
+    const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
+    const existing = db.prepare('SELECT id, role, password_hash FROM users WHERE email = ?').get(masterEmail);
+    const hash = await bcrypt.hash(masterPassword, 10);
+    if (!existing) {
+      db.prepare(`
+        INSERT INTO users (id, nickname, email, password_hash, language, role)
+        VALUES (?, '마스터관리자', ?, ?, 'ko', 'admin')
+      `).run(uuidv4(), masterEmail, hash);
+      console.log(`[마스터 어드민] 신규 생성 — ${masterEmail}`);
+    } else {
+      // 비밀번호 동기화 및 role 강제 admin
+      db.prepare('UPDATE users SET password_hash = ?, role = ? WHERE email = ?')
+        .run(hash, 'admin', masterEmail);
+      console.log(`[마스터 어드민] 동기화 완료 — ${masterEmail}`);
+    }
+  }
+
   server = app.listen(PORT, '0.0.0.0', () => {
     // REPL_SLUG, REPL_OWNER 는 Replit이 자동 주입하는 환경변수입니다.
     const replSlug  = process.env.REPL_SLUG;
