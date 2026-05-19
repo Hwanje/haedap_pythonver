@@ -715,7 +715,7 @@ async function loadWikiPending() {
 
   try {
     const data = await api('/api/admin/wiki/pending');
-    const posts = data.posts || [];
+    const posts = data.data || data.posts || [];
 
     if (posts.length === 0) {
       container.innerHTML = '<div class="empty-msg">심사 대기 중인 위키가 없습니다.</div>';
