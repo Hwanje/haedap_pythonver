@@ -740,10 +740,10 @@ async function loadWikiPending() {
         <div class="wiki-actions">
           <input class="wiki-note-input" id="note-${post.id}" type="text"
             placeholder="관리자 메모 (선택사항)" />
-          <button class="btn btn-success btn-xs" onclick="reviewWiki('${post.id}', 'approved')">
+          <button class="btn btn-success btn-xs" onclick="reviewWiki('${post.id}', 'approve')">
             승인
           </button>
-          <button class="btn btn-danger btn-xs" onclick="reviewWiki('${post.id}', 'rejected')">
+          <button class="btn btn-danger btn-xs" onclick="reviewWiki('${post.id}', 'reject')">
             거절
           </button>
         </div>
@@ -767,7 +767,7 @@ function catKo(cat) {
 /** 위키 승인/거절 처리 */
 async function reviewWiki(id, action) {
   const note = document.getElementById(`note-${id}`)?.value || '';
-  const actionLabel = action === 'approved' ? '승인' : '거절';
+  const actionLabel = action === 'approve' ? '승인' : '거절';
 
   if (!confirm(`이 위키를 ${actionLabel}하시겠습니까?`)) return;
 
@@ -777,7 +777,7 @@ async function reviewWiki(id, action) {
       body: JSON.stringify({ action, admin_note: note }),
     });
 
-    showToast(`위키를 ${actionLabel}했습니다.`, action === 'approved' ? 'success' : 'error');
+    showToast(`위키를 ${actionLabel}했습니다.`, action === 'approve' ? 'success' : 'error');
 
     // 해당 항목 상태 업데이트 (목록에서 제거)
     const el = document.getElementById(`wiki-${id}`);
