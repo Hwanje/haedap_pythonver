@@ -735,12 +735,8 @@
     }
     .sort-btn:disabled { opacity: .6; cursor: not-allowed; }
 
-    /* 지도 내 위치 버튼 */
+    /* 지도 내 위치 버튼 (Leaflet 컨트롤로 삽입) */
     .map-locate-btn {
-      position: absolute;
-      top: 12px;
-      right: 54px;
-      z-index: 400;
       background: #fff;
       border: 2px solid var(--ocean-mid);
       border-radius: 10px;
@@ -754,9 +750,58 @@
       align-items: center;
       gap: 6px;
       transition: background .15s, color .15s;
+      white-space: nowrap;
     }
     .map-locate-btn:hover  { background: var(--ocean-mid); color: #fff; }
     .map-locate-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* 위키 제보 탭 */
+    .wiki-status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .73rem;
+      font-weight: 700;
+    }
+    .wiki-status-pending  { background: #fff8e1; color: #e65100; }
+    .wiki-status-approved { background: #e8f5e9; color: #2e7d32; }
+    .wiki-status-rejected { background: #ffebee; color: #c62828; }
+
+    .wiki-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+    }
+    .wiki-card-title   { font-size: .95rem; font-weight: 700; color: var(--ocean-deep); margin-bottom: 4px; }
+    .wiki-card-meta    { font-size: .76rem; color: var(--text-light); margin-bottom: 6px; }
+    .wiki-card-content { font-size: .85rem; color: var(--text-mid); line-height: 1.55;
+                         display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden; }
+    .wiki-cat-chip {
+      display: inline-block;
+      background: var(--ocean-light); color: var(--ocean-mid);
+      border-radius: 6px; padding: 2px 8px;
+      font-size: .72rem; font-weight: 600; margin-bottom: 6px;
+    }
+    .wiki-admin-note {
+      margin-top: 8px; padding: 8px 12px;
+      background: #fff3e0; border-radius: 8px;
+      font-size: .8rem; color: #bf360c;
+    }
+    .wiki-reward-note {
+      font-size: .78rem; color: var(--wave-teal); font-weight: 700; margin-top: 6px;
+    }
+    .wiki-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 600px) { .wiki-form-grid { grid-template-columns: 1fr; } }
+    .wiki-sub-header {
+      font-size: .88rem; font-weight: 700; color: var(--ocean-deep);
+      margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+    }
 
     /* 명소 카드 거리 표시 */
     .spot-distance {
@@ -945,6 +990,7 @@
     <button class="tab-btn" onclick="switchTab('progress',this)">내 진행률</button>
     <button class="tab-btn" onclick="switchTab('rewards',this)">리워드 카탈로그</button>
     <button class="tab-btn" onclick="switchTab('missions',this)">미션</button>
+    <button class="tab-btn" onclick="switchTab('wiki',this)">📝 위키 제보</button>
   </div>
 
   <!-- 탭 패널: 명소 목록 -->
@@ -963,9 +1009,8 @@
     </div>
   </div>
 
-  <!-- 탭 패널: 지도 -->
-  <div id="tab-map" class="tab-panel" style="position:relative">
-    <button class="map-locate-btn" id="map-locate-btn" onclick="locateOnMap(this)">📍 내 위치</button>
+  <!-- 탭 패널: 지도 (내 위치 버튼은 Leaflet 컨트롤로 삽입) -->
+  <div id="tab-map" class="tab-panel">
     <div id="map"></div>
   </div>
 
@@ -990,6 +1035,102 @@
     <div id="missions-container">
       <div class="spinner-wrap"><div class="spinner"></div></div>
     </div>
+  </div>
+
+  <!-- 탭 패널: 위키 제보 -->
+  <div id="tab-wiki" class="tab-panel">
+
+    <!-- 제보 작성 폼 -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <h3>새 위키 제보 작성</h3>
+        <span style="font-size:.78rem;color:var(--text-light)">승인 시 스탬프 지급 · 관리자 심사 후 반영</span>
+      </div>
+      <div style="padding:20px">
+        <p style="font-size:.83rem;color:var(--text-mid);margin-bottom:16px;line-height:1.55">
+          부산 해양 명소에 대한 이벤트·꿀팁·안전 정보·숨은명소를 공유해주세요.<br>
+          제보가 <strong>관리자 심사</strong>를 통과하면 카테고리별 스탬프가 지급됩니다.
+        </p>
+        <form id="wiki-form" onsubmit="submitWiki(event)">
+          <div class="wiki-form-grid">
+            <div class="form-group">
+              <label for="wiki-spot">관련 명소 <span style="font-weight:400;color:var(--text-light)">(선택)</span></label>
+              <select id="wiki-spot">
+                <option value="">명소를 선택하세요</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="wiki-category">카테고리 <span style="color:var(--danger)">*</span></label>
+              <select id="wiki-category" onchange="onWikiCategoryChange()" required>
+                <option value="">카테고리 선택</option>
+                <option value="event">🎉 이벤트</option>
+                <option value="hidden_spot">🗺 숨은명소</option>
+                <option value="safety">⚠️ 안전정보</option>
+                <option value="tip">💡 꿀팁</option>
+                <option value="food">🍜 맛집</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="wiki-title">제목 <span style="color:var(--danger)">*</span></label>
+            <input id="wiki-title" type="text" placeholder="제목을 입력하세요" required maxlength="100"/>
+          </div>
+          <div class="form-group">
+            <label for="wiki-content">내용 <span style="color:var(--danger)">*</span>
+              <span style="font-weight:400;color:var(--text-light)">(20자 이상)</span>
+            </label>
+            <textarea id="wiki-content" rows="5" placeholder="내용을 입력하세요 (최소 20자)" required style="resize:vertical"></textarea>
+          </div>
+          <!-- 이벤트 카테고리 전용 날짜 입력 -->
+          <div id="wiki-event-dates" style="display:none">
+            <div class="wiki-form-grid">
+              <div class="form-group">
+                <label for="wiki-event-start">이벤트 시작일 <span style="color:var(--danger)">*</span></label>
+                <input id="wiki-event-start" type="date"/>
+              </div>
+              <div class="form-group">
+                <label for="wiki-event-end">이벤트 종료일 <span style="color:var(--danger)">*</span></label>
+                <input id="wiki-event-end" type="date"/>
+              </div>
+            </div>
+          </div>
+
+          <div id="wiki-reward-hint" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--ocean-light);border-radius:8px;font-size:.82rem;color:var(--ocean-deep)"></div>
+          <div id="wiki-submit-error" class="error-msg"></div>
+          <button type="submit" class="btn btn-primary" id="wiki-submit-btn" style="width:100%;justify-content:center;padding:11px">
+            제보 제출하기
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 내 제보 현황 -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <h3>내 제보 현황</h3>
+        <button class="btn btn-outline btn-sm" style="color:var(--ocean-mid);border-color:var(--ocean-mid)" onclick="loadMyWikis()">새로고침</button>
+      </div>
+      <div id="my-wiki-container" style="padding:4px 0">
+        <div class="empty-msg">제보 내역이 없습니다.</div>
+      </div>
+    </div>
+
+    <!-- 승인된 위키 목록 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="section-title" style="margin-bottom:0">승인된 위키 정보</div>
+      <select id="wiki-filter-cat" onchange="loadApprovedWikis()" style="padding:5px 10px;font-size:.82rem;border-radius:8px;border:1.5px solid var(--border)">
+        <option value="">전체</option>
+        <option value="event">이벤트</option>
+        <option value="hidden_spot">숨은명소</option>
+        <option value="safety">안전정보</option>
+        <option value="tip">꿀팁</option>
+        <option value="food">맛집</option>
+      </select>
+    </div>
+    <div id="wiki-list-container">
+      <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+
   </div>
 </div>
 
@@ -1171,6 +1312,7 @@ function switchTab(name, btn) {
     if (name === 'progress') loadProgressTab();
     if (name === 'rewards')  loadRewardsTab();
     if (name === 'missions') loadMissionsTab();
+    if (name === 'wiki')     loadWikiTab();
   } else if (name === 'map' && window._busanMap) {
     // 이미 초기화된 지도 크기 재조정 (탭 전환 시 필요)
     setTimeout(() => window._busanMap.invalidateSize(), 50);
@@ -1194,6 +1336,20 @@ async function loadMapTab() {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19,
   }).addTo(map);
+
+  // 내 위치 버튼 — Leaflet Control로 삽입해야 지도 레이어 위에 올바르게 표시됨
+  const LocateControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const btn = L.DomUtil.create('button', 'map-locate-btn');
+      btn.innerHTML = '📍 내 위치';
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.disableScrollPropagation(btn);
+      btn.addEventListener('click', () => locateOnMap(btn));
+      return btn;
+    },
+  });
+  new LocateControl().addTo(map);
 
   try {
     const data = await api('/api/spots');
@@ -1690,6 +1846,163 @@ async function loadMissionsTab() {
       </div>`;
   } catch (err) {
     container.innerHTML = `<div class="empty-msg">미션을 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────
+// 위키 제보 탭
+// ─────────────────────────────────────────
+
+const WIKI_CAT_LABEL = { event:'이벤트', hidden_spot:'숨은명소', safety:'안전정보', tip:'꿀팁', food:'맛집' };
+const WIKI_CAT_ICON  = { event:'🎉', hidden_spot:'🗺', safety:'⚠️', tip:'💡', food:'🍜' };
+const WIKI_REWARDS   = { event:10, hidden_spot:15, safety:20, tip:5, food:8 };
+
+async function loadWikiTab() {
+  tabLoaded.wiki = true;
+  // 명소 드롭다운 채우기 (아직 안 로드된 경우)
+  if (allSpots.length === 0) {
+    try {
+      const data = await api('/api/spots');
+      allSpots = data.spots || [];
+      allSpots.forEach(s => { spotsCache[s.id] = s; });
+    } catch (_) {}
+  }
+  const spotSelect = document.getElementById('wiki-spot');
+  if (spotSelect.options.length <= 1 && allSpots.length > 0) {
+    allSpots.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      spotSelect.appendChild(opt);
+    });
+  }
+
+  loadMyWikis();
+  loadApprovedWikis();
+}
+
+async function loadMyWikis() {
+  const container = document.getElementById('my-wiki-container');
+  try {
+    const data = await api('/api/wiki/my');
+    const posts = data.data || [];
+    if (posts.length === 0) {
+      container.innerHTML = '<div class="empty-msg" style="padding:20px">아직 제보한 내역이 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = posts.map(p => {
+      const statusCls = { pending:'wiki-status-pending', approved:'wiki-status-approved', rejected:'wiki-status-rejected' }[p.status] || '';
+      const statusLbl = { pending:'심사 대기', approved:'승인됨', rejected:'반려됨' }[p.status] || p.status;
+      const noteHtml = p.admin_note
+        ? `<div class="wiki-admin-note">관리자 메모: ${p.admin_note}</div>` : '';
+      const rewardHtml = p.status === 'approved' && p.reward_stamps
+        ? `<div class="wiki-reward-note">+${p.reward_stamps} 스탬프 지급됨</div>` : '';
+      return `
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div>
+            <span class="wiki-cat-chip">${WIKI_CAT_ICON[p.category]||''} ${WIKI_CAT_LABEL[p.category]||p.category}</span>
+            <div class="wiki-card-title">${p.title}</div>
+            <div class="wiki-card-meta">${p.spot_name_ko ? p.spot_name_ko + ' · ' : ''}${p.created_at?.substring(0,10)}</div>
+          </div>
+          <span class="wiki-status-badge ${statusCls}" style="flex-shrink:0">${statusLbl}</span>
+        </div>
+        ${noteHtml}${rewardHtml}
+      </div>`;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="empty-msg">내 제보를 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+async function loadApprovedWikis() {
+  const container = document.getElementById('wiki-list-container');
+  container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  const cat = document.getElementById('wiki-filter-cat').value;
+  try {
+    const qs = cat ? `?category=${cat}` : '';
+    const data = await api(`/api/wiki/${qs}`);
+    const posts = data.data || [];
+    if (posts.length === 0) {
+      container.innerHTML = '<div class="empty-msg">등록된 위키 정보가 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = posts.map(p => `
+      <div class="wiki-card">
+        <span class="wiki-cat-chip">${WIKI_CAT_ICON[p.category]||''} ${WIKI_CAT_LABEL[p.category]||p.category}</span>
+        <div class="wiki-card-title">${p.title}</div>
+        <div class="wiki-card-meta">
+          ${p.spot_name_ko ? '📍 '+p.spot_name_ko+' · ' : ''}
+          ${p.author_nickname} · ${p.created_at?.substring(0,10)} · 👍 ${p.helpful_count||0}
+        </div>
+        <div class="wiki-card-content">${p.content || ''}</div>
+        ${p.category==='event' && p.event_start_date
+          ? `<div style="font-size:.76rem;color:var(--wave-teal);margin-top:6px">기간: ${p.event_start_date} ~ ${p.event_end_date||'미정'}</div>` : ''}
+      </div>`).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="empty-msg">위키를 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+function onWikiCategoryChange() {
+  const cat = document.getElementById('wiki-category').value;
+  const eventDates = document.getElementById('wiki-event-dates');
+  const hint = document.getElementById('wiki-reward-hint');
+
+  eventDates.style.display = (cat === 'event') ? 'block' : 'none';
+
+  if (cat && WIKI_REWARDS[cat]) {
+    hint.style.display = 'block';
+    hint.innerHTML = `<strong>${WIKI_CAT_ICON[cat]} ${WIKI_CAT_LABEL[cat]}</strong> 카테고리 — 승인 시 최대 <strong style="color:var(--wave-teal)">${WIKI_REWARDS[cat]}개</strong> 스탬프 지급`;
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+async function submitWiki(e) {
+  e.preventDefault();
+  const errEl  = document.getElementById('wiki-submit-error');
+  const btn    = document.getElementById('wiki-submit-btn');
+  errEl.style.display = 'none';
+
+  const spot_id   = document.getElementById('wiki-spot').value || null;
+  const category  = document.getElementById('wiki-category').value;
+  const title     = document.getElementById('wiki-title').value.trim();
+  const content   = document.getElementById('wiki-content').value.trim();
+  const evtStart  = document.getElementById('wiki-event-start').value || null;
+  const evtEnd    = document.getElementById('wiki-event-end').value   || null;
+
+  if (content.length < 20) {
+    errEl.textContent = '내용은 20자 이상 입력해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '제출 중...';
+
+  try {
+    const body = { title, content, category };
+    if (spot_id)  body.spot_id = spot_id;
+    if (evtStart) body.event_start_date = evtStart;
+    if (evtEnd)   body.event_end_date   = evtEnd;
+
+    const data = await api('/api/wiki/', { method:'POST', body: JSON.stringify(body) });
+    showToast(`제보가 접수됐습니다! 승인 시 최대 ${data.expected_reward_stamps}개 스탬프 지급 예정`, 'success');
+
+    // 폼 초기화
+    document.getElementById('wiki-form').reset();
+    document.getElementById('wiki-event-dates').style.display = 'none';
+    document.getElementById('wiki-reward-hint').style.display = 'none';
+
+    // 내 제보 목록 갱신
+    loadMyWikis();
+  } catch (err) {
+    errEl.textContent = err.message || '제출 중 오류가 발생했습니다.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '제보 제출하기';
   }
 }
 
