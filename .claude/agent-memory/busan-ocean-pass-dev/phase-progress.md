@@ -107,6 +107,19 @@ metadata:
 - localStorage에 JWT 토큰 저장 (op_token/admin_token 분리)
 - 탭별 첫 활성화 시에만 API 호출 (tabLoaded 플래그) — 불필요한 중복 요청 방지
 
+## Replit 설정 정비 — 완료 (2026-05-18)
+
+수정/생성 파일:
+- `.replit` — 최상위 `run = "npm install --prefer-offline && npm start"` 추가, `[env]` PORT=3000 추가, API 헬스체크 워크플로우 추가
+- `replit.nix` — 신규 생성: nodejs_20, node-gyp, python3, gcc, curl, jq (better-sqlite3 native 빌드 도구 포함)
+- `src/server.js` — PORT parseInt 주석 명확화, 시작 로그에 REPL_SLUG/REPL_OWNER로 Replit 외부 URL 자동 출력
+- `package.json` — `"setup": "npm install && npm run seed && npm start"` 스크립트 추가
+
+**주요 확인 사항:**
+- better-sqlite3 없어도 sql.js fallback으로 정상 기동 확인
+- `server.js`의 `app.listen(PORT, '0.0.0.0', ...)` — 0.0.0.0 바인딩으로 Replit 프록시 접근 가능
+- API 헬스체크 `GET /api` 응답 확인: status: healthy, 8개 엔드포인트 그룹 모두 반환
+
 ## Phase 8 — 완료 (2026-05-15)
 
 **발견 및 수정된 버그:**
