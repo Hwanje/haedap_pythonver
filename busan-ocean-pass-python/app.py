@@ -19,9 +19,10 @@ from routes.rewards  import rewards_bp
 from routes.missions import missions_bp
 from routes.admin    import admin_bp
 from routes.qr       import qr_bp
+from routes.chat     import chat_bp
 
 
-PUBLIC_DIR = os.path.join(os.path.dirname(__file__), '..', 'busan-ocean-pass-backend', 'public')
+PUBLIC_DIR = os.path.join(os.path.dirname(__file__), 'public')
 
 
 def create_app():
@@ -39,6 +40,7 @@ def create_app():
     app.register_blueprint(missions_bp, url_prefix='/api/missions')
     app.register_blueprint(admin_bp,    url_prefix='/api/admin')
     app.register_blueprint(qr_bp,       url_prefix='/api/qr')
+    app.register_blueprint(chat_bp,     url_prefix='/api/chat')
 
     app.teardown_appcontext(close_db)
 

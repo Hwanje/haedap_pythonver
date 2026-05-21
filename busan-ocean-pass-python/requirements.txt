@@ -3,3 +3,4 @@ flask-cors
 PyJWT
 bcrypt
 python-dotenv
+google-genai

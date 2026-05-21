@@ -1,0 +1,2598 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>부산오션패스 — 해양수도 여행 동반자</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    /* ─────────────────────────────────────────
+       기본 리셋 및 CSS 변수
+    ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ocean-deep:   #0a2342;
+      --ocean-mid:    #1565c0;
+      --ocean-bright: #1e88e5;
+      --ocean-light:  #e3f2fd;
+      --ocean-foam:   #f0f8ff;
+      --wave-teal:    #00acc1;
+      --coral:        #ff7043;
+      --sand:         #fff8e1;
+      --text-dark:    #1a1a2e;
+      --text-mid:     #455a64;
+      --text-light:   #90a4ae;
+      --success:      #43a047;
+      --warning:      #fb8c00;
+      --danger:       #e53935;
+      --border:       #cfd8dc;
+      --card-shadow:  0 2px 12px rgba(10,35,66,.10);
+      --radius:       12px;
+      --radius-sm:    8px;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Noto Sans KR', sans-serif;
+      background: var(--ocean-foam);
+      color: var(--text-dark);
+      min-height: 100vh;
+    }
+
+    /* ─────────────────────────────────────────
+       헤더
+    ───────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, var(--ocean-deep) 0%, var(--ocean-mid) 100%);
+      color: #fff;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -.5px;
+    }
+
+    .logo-icon { font-size: 1.6rem; }
+
+    .logo-sub {
+      font-size: .7rem;
+      font-weight: 400;
+      opacity: .8;
+      display: block;
+      letter-spacing: 0;
+    }
+
+    #header-user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: .9rem;
+    }
+
+    #user-stamp-badge {
+      background: var(--wave-teal);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-weight: 600;
+      font-size: .85rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: filter .15s, transform .1s;
+      text-decoration: none;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:hover  { filter: brightness(1.08); }
+
+    .btn-primary  { background: var(--ocean-bright); color: #fff; }
+    .btn-outline  { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.5); }
+    .btn-danger   { background: var(--danger);  color: #fff; }
+    .btn-success  { background: var(--success); color: #fff; }
+    .btn-sm       { padding: 5px 12px; font-size: .8rem; }
+
+    /* ─────────────────────────────────────────
+       로그인 화면
+    ───────────────────────────────────────── */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 64px);
+      padding: 24px;
+    }
+
+    .login-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .login-hero {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .login-hero .wave { font-size: 3rem; display: block; margin-bottom: 8px; }
+
+    .login-hero h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--ocean-deep);
+      margin-bottom: 4px;
+    }
+
+    .login-hero p {
+      font-size: .88rem;
+      color: var(--text-mid);
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--text-mid);
+      margin-bottom: 6px;
+    }
+
+    input[type="email"],
+    input[type="password"],
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .93rem;
+      transition: border-color .15s;
+      outline: none;
+      background: #fff;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--ocean-bright);
+      box-shadow: 0 0 0 3px rgba(30,136,229,.12);
+    }
+
+    .error-msg {
+      background: #fff3f3;
+      border: 1px solid #ffcdd2;
+      color: var(--danger);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: .85rem;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    .login-hint {
+      text-align: center;
+      font-size: .8rem;
+      color: var(--text-light);
+      margin-top: 16px;
+    }
+
+    .login-hint a {
+      color: var(--ocean-bright);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    /* ─────────────────────────────────────────
+       메인 대시보드
+    ───────────────────────────────────────── */
+    #dashboard {
+      display: none;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px;
+    }
+
+    /* 환영 배너 */
+    .welcome-banner {
+      background: linear-gradient(120deg, var(--ocean-deep) 0%, var(--wave-teal) 100%);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .welcome-banner h2 { font-size: 1.3rem; margin-bottom: 4px; }
+    .welcome-banner p  { font-size: .88rem; opacity: .85; }
+
+    .stamp-count {
+      text-align: center;
+      background: rgba(255,255,255,.15);
+      border-radius: var(--radius-sm);
+      padding: 14px 24px;
+    }
+
+    .stamp-count .num {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .stamp-count .label {
+      font-size: .8rem;
+      opacity: .85;
+      margin-top: 4px;
+    }
+
+    /* 탭 */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 6px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      flex: 1;
+      min-width: 110px;
+      padding: 10px 8px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--text-mid);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: var(--ocean-mid);
+      color: #fff;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: var(--ocean-light);
+      color: var(--ocean-mid);
+    }
+
+    /* 탭 패널 */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ─────────────────────────────────────────
+       카드 공통
+    ───────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-header h3 { font-size: 1rem; font-weight: 700; color: var(--ocean-deep); }
+
+    /* ─────────────────────────────────────────
+       명소 그리드
+    ───────────────────────────────────────── */
+    .spots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .spot-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      overflow: hidden;
+      transition: transform .15s, box-shadow .15s;
+    }
+
+    .spot-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(10,35,66,.15);
+    }
+
+    .spot-card-img {
+      height: 120px;
+      background: linear-gradient(135deg, var(--ocean-light), var(--ocean-mid));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8rem;
+      position: relative;
+    }
+
+    .spot-card-body {
+      padding: 14px 16px;
+    }
+
+    .spot-name {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: var(--ocean-deep);
+    }
+
+    .spot-category {
+      font-size: .75rem;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+
+    .spot-desc {
+      font-size: .8rem;
+      color: var(--text-mid);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .spot-footer {
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 혼잡도 배지 */
+    .congestion-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 700;
+    }
+    .congestion-low  { background: #e8f5e9; color: #2e7d32; }
+    .congestion-mid  { background: #fff8e1; color: #e65100; }
+    .congestion-high { background: #ffebee; color: #c62828; }
+
+    /* ─────────────────────────────────────────
+       진행률 탭
+    ───────────────────────────────────────── */
+    .progress-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 20px 18px;
+      text-align: center;
+    }
+
+    .stat-card .icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .stat-card .val  { font-size: 1.8rem; font-weight: 800; color: var(--ocean-mid); }
+    .stat-card .lbl  { font-size: .78rem; color: var(--text-mid); margin-top: 2px; }
+
+    .progress-bar-wrap {
+      background: var(--border);
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+      margin: 8px 0 4px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--ocean-mid), var(--wave-teal));
+      transition: width .6s ease;
+    }
+
+    .progress-label {
+      font-size: .78rem;
+      color: var(--text-light);
+      text-align: right;
+    }
+
+    .spot-progress-list { padding: 4px 0; }
+
+    .spot-progress-item {
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .spot-progress-item:last-child { border-bottom: none; }
+
+    .spot-check {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .spot-check.done   { background: var(--success); color: #fff; }
+    .spot-check.undone { background: var(--border); color: var(--text-light); }
+
+    .spot-progress-name { font-size: .9rem; font-weight: 600; flex: 1; }
+    .spot-progress-cat  { font-size: .75rem; color: var(--text-light); }
+
+    /* ─────────────────────────────────────────
+       리워드 카탈로그
+    ───────────────────────────────────────── */
+    .rewards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .reward-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .reward-icon-wrap {
+      width: 52px;
+      height: 52px;
+      background: var(--ocean-light);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+    }
+
+    .reward-name { font-size: .95rem; font-weight: 700; color: var(--ocean-deep); }
+    .reward-desc { font-size: .8rem; color: var(--text-mid); line-height: 1.45; flex: 1; }
+
+    .reward-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+    }
+
+    .reward-cost {
+      font-size: .88rem;
+      font-weight: 700;
+      color: var(--wave-teal);
+    }
+
+    .reward-foreigner-note {
+      font-size: .72rem;
+      color: var(--warning);
+      background: #fff8e1;
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid #ffe082;
+    }
+
+    /* ─────────────────────────────────────────
+       미션 목록
+    ───────────────────────────────────────── */
+    .missions-list { display: flex; flex-direction: column; gap: 14px; }
+
+    .mission-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 20px;
+    }
+
+    .mission-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .mission-icon-wrap {
+      width: 48px;
+      height: 48px;
+      background: var(--ocean-light);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      flex-shrink: 0;
+    }
+
+    .mission-name { font-size: 1rem; font-weight: 700; color: var(--ocean-deep); margin-bottom: 4px; }
+    .mission-desc { font-size: .83rem; color: var(--text-mid); line-height: 1.5; }
+
+    .mission-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .mission-bonus {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--wave-teal);
+    }
+
+    .mission-badge {
+      font-size: .75rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .mission-badge.complete   { background: #e8f5e9; color: #2e7d32; }
+    .mission-badge.incomplete { background: var(--ocean-light); color: var(--ocean-mid); }
+
+    /* ─────────────────────────────────────────
+       로딩 스피너
+    ───────────────────────────────────────── */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--ocean-light);
+      border-top-color: var(--ocean-mid);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─────────────────────────────────────────
+       토스트 알림
+    ───────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    .toast {
+      background: var(--ocean-deep);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      padding: 12px 18px;
+      font-size: .87rem;
+      max-width: 300px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.2);
+      animation: slideIn .25s ease;
+    }
+
+    .toast.success { background: var(--success); }
+    .toast.error   { background: var(--danger); }
+
+    @keyframes slideIn {
+      from { transform: translateX(30px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    /* ─────────────────────────────────────────
+       반응형
+    ───────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .welcome-banner { padding: 18px 20px; }
+      .tab-btn { font-size: .8rem; min-width: 80px; }
+      .spots-grid { grid-template-columns: 1fr; }
+      .rewards-grid { grid-template-columns: 1fr; }
+    }
+
+    /* 섹션 제목 */
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--ocean-deep);
+      margin-bottom: 14px;
+    }
+
+    .empty-msg {
+      text-align: center;
+      color: var(--text-light);
+      padding: 40px;
+      font-size: .88rem;
+    }
+
+    /* 지도 탭 */
+    #map {
+      height: calc(100vh - 260px);
+      min-height: 420px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+
+    .map-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      box-shadow: 0 2px 8px rgba(0,0,0,.3);
+      font-size: 1rem;
+      cursor: pointer;
+      border: 2px solid #fff;
+    }
+
+    .map-marker span { transform: rotate(45deg); display: block; }
+
+    .map-marker.beach   { background: #1e88e5; }
+    .map-marker.port    { background: #546e7a; }
+    .map-marker.island  { background: #388e3c; }
+    .map-marker.culture { background: #7b1fa2; }
+    .map-marker.trail   { background: #558b2f; }
+    .map-marker.food    { background: #ef6c00; }
+    .map-marker.hidden  { background: #c2185b; }
+    .map-marker.default { background: var(--ocean-mid); }
+
+    .map-popup-name { font-weight: 700; font-size: .95rem; color: var(--ocean-deep); margin-bottom: 2px; }
+    .map-popup-cat  { font-size: .78rem; color: var(--text-light); margin-bottom: 6px; }
+    .map-popup-btn  {
+      display: block; width: 100%; text-align: center;
+      padding: 5px 0; background: var(--ocean-mid); color: #fff;
+      border: none; border-radius: 6px; font-size: .8rem; font-weight: 600;
+      cursor: pointer;
+    }
+    .map-popup-btn:hover { background: var(--ocean-deep); }
+
+    /* 정렬 컨트롤 */
+    .sort-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .sort-bar .sort-label {
+      font-size: .82rem;
+      color: var(--text-mid);
+      font-weight: 600;
+    }
+    .sort-btn {
+      padding: 6px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      background: #fff;
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--text-mid);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .sort-btn.active {
+      background: var(--ocean-mid);
+      color: #fff;
+      border-color: var(--ocean-mid);
+    }
+    .sort-btn:hover:not(.active) {
+      border-color: var(--ocean-bright);
+      color: var(--ocean-bright);
+    }
+    .sort-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* 지도 내 위치 버튼 (Leaflet 컨트롤로 삽입) */
+    .map-locate-btn {
+      background: #fff;
+      border: 2px solid var(--ocean-mid);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--ocean-mid);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,.18);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background .15s, color .15s;
+      white-space: nowrap;
+    }
+    .map-locate-btn:hover  { background: var(--ocean-mid); color: #fff; }
+    .map-locate-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* 위키 제보 탭 */
+    .wiki-status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .73rem;
+      font-weight: 700;
+    }
+    .wiki-status-pending  { background: #fff8e1; color: #e65100; }
+    .wiki-status-approved { background: #e8f5e9; color: #2e7d32; }
+    .wiki-status-rejected { background: #ffebee; color: #c62828; }
+
+    .wiki-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+    }
+    .wiki-card-title   { font-size: .95rem; font-weight: 700; color: var(--ocean-deep); margin-bottom: 4px; }
+    .wiki-card-meta    { font-size: .76rem; color: var(--text-light); margin-bottom: 6px; }
+    .wiki-card-content { font-size: .85rem; color: var(--text-mid); line-height: 1.55;
+                         display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden; }
+    .wiki-cat-chip {
+      display: inline-block;
+      background: var(--ocean-light); color: var(--ocean-mid);
+      border-radius: 6px; padding: 2px 8px;
+      font-size: .72rem; font-weight: 600; margin-bottom: 6px;
+    }
+    .wiki-admin-note {
+      margin-top: 8px; padding: 8px 12px;
+      background: #fff3e0; border-radius: 8px;
+      font-size: .8rem; color: #bf360c;
+    }
+    .wiki-reward-note {
+      font-size: .78rem; color: var(--wave-teal); font-weight: 700; margin-top: 6px;
+    }
+    .wiki-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 600px) { .wiki-form-grid { grid-template-columns: 1fr; } }
+    .wiki-sub-header {
+      font-size: .88rem; font-weight: 700; color: var(--ocean-deep);
+      margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+    }
+
+    /* QR 코드 모달 */
+    #qr-modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #qr-modal-overlay.open { display: flex; }
+    .qr-modal-box {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px 28px 24px;
+      width: 100%; max-width: 360px;
+      text-align: center;
+      box-shadow: 0 8px 48px rgba(0,0,0,.3);
+      animation: slideUp .2s ease;
+    }
+    .qr-modal-title  { font-size: 1.15rem; font-weight: 700; color: var(--ocean-deep); margin-bottom: 4px; }
+    .qr-modal-sub    { font-size: .82rem; color: var(--text-mid); margin-bottom: 18px; }
+    #qr-canvas-wrap  { display: flex; justify-content: center; margin-bottom: 16px; }
+    #qr-canvas-wrap canvas, #qr-canvas-wrap img { border-radius: 8px; }
+    .qr-timer {
+      font-size: 1rem; font-weight: 700;
+      color: var(--ocean-mid); margin-bottom: 14px;
+    }
+    .qr-timer.warning { color: var(--danger); }
+    .qr-notice { font-size: .78rem; color: var(--text-light); margin-bottom: 16px; line-height: 1.5; }
+    .qr-stamp-info {
+      background: var(--ocean-light);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: .85rem;
+      color: var(--ocean-deep);
+      margin-bottom: 16px;
+    }
+    .qr-tab-bar {
+      display: flex;
+      background: var(--ocean-foam);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 18px;
+    }
+    .qr-tab-btn {
+      flex: 1;
+      padding: 8px 0;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      font-size: .83rem;
+      font-weight: 600;
+      color: var(--text-mid);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .qr-tab-btn.active { background: var(--ocean-mid); color: #fff; }
+    .qr-panel { display: none; }
+    .qr-panel.active { display: block; }
+    .token-display-box {
+      background: var(--ocean-foam);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: .8rem;
+      color: var(--text-dark);
+      margin-bottom: 10px;
+      user-select: all;
+      letter-spacing: .03em;
+    }
+    .copy-btn {
+      width: 100%;
+      padding: 9px;
+      border: 1.5px solid var(--ocean-mid);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ocean-mid);
+      font-size: .84rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      margin-bottom: 12px;
+    }
+    .copy-btn:hover { background: var(--ocean-mid); color: #fff; }
+
+    /* 명소 카드 거리 표시 */
+    .spot-distance {
+      font-size: .73rem;
+      color: var(--ocean-bright);
+      font-weight: 700;
+    }
+
+    /* 카테고리 아이콘 매핑 */
+    .cat-beach   { background: linear-gradient(135deg, #bbdefb, #1e88e5); }
+    .cat-port    { background: linear-gradient(135deg, #cfd8dc, #546e7a); }
+    .cat-island  { background: linear-gradient(135deg, #c8e6c9, #388e3c); }
+    .cat-culture { background: linear-gradient(135deg, #e1bee7, #7b1fa2); }
+    .cat-trail   { background: linear-gradient(135deg, #dcedc8, #558b2f); }
+    .cat-food    { background: linear-gradient(135deg, #ffe0b2, #ef6c00); }
+    .cat-hidden  { background: linear-gradient(135deg, #fce4ec, #c2185b); }
+
+    /* ── 명소 상세 모달 ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 18px;
+      width: 100%; max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 48px rgba(0,0,0,.25);
+      animation: slideUp .22s ease;
+    }
+    @keyframes slideUp {
+      from { opacity:0; transform:translateY(24px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .modal-hero {
+      height: 160px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3.5rem;
+      border-radius: 18px 18px 0 0;
+    }
+    .modal-body { padding: 20px 24px 24px; }
+    .modal-close {
+      position: sticky; top: 12px; float: right;
+      background: rgba(255,255,255,.85);
+      border: none; border-radius: 50%;
+      width: 32px; height: 32px;
+      font-size: 1.1rem; cursor: pointer;
+      line-height: 32px; text-align: center;
+      margin: 12px 12px 0 0;
+      box-shadow: 0 1px 6px rgba(0,0,0,.15);
+    }
+    .modal-title { font-size: 1.4rem; font-weight: 700; color: var(--text-dark); margin-bottom: 4px; }
+    .modal-subtitle { font-size: .85rem; color: var(--text-light); margin-bottom: 14px; }
+    .modal-desc { font-size: .93rem; line-height: 1.65; color: var(--text-mid); margin-bottom: 18px; }
+    .modal-stats {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 10px; margin-bottom: 18px;
+    }
+    .modal-stat { background: var(--ocean-foam); border-radius: 10px; padding: 10px; text-align: center; }
+    .modal-stat .val { font-size: 1.2rem; font-weight: 700; color: var(--ocean-mid); }
+    .modal-stat .lbl { font-size: .73rem; color: var(--text-light); margin-top: 2px; }
+    .modal-section-title { font-size: .88rem; font-weight: 700; color: var(--text-dark); margin: 14px 0 8px; }
+    .modal-review {
+      background: var(--ocean-foam); border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 8px;
+      font-size: .85rem;
+    }
+    .modal-review .review-meta { color: var(--text-light); font-size: .78rem; margin-top: 4px; }
+    .modal-wiki {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 8px;
+      font-size: .85rem;
+    }
+    .modal-wiki .wiki-cat {
+      display: inline-block;
+      background: var(--ocean-light); color: var(--ocean-mid);
+      border-radius: 6px; padding: 1px 8px;
+      font-size: .73rem; font-weight: 600; margin-bottom: 4px;
+    }
+    .modal-congestion-row {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--ocean-foam); border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 14px;
+      font-size: .88rem;
+    }
+    .modal-map-btn {
+      display: block; width: 100%;
+      background: var(--ocean-mid); color: #fff;
+      border: none; border-radius: 10px;
+      padding: 12px; font-size: .95rem; font-weight: 600;
+      cursor: pointer; text-align: center; text-decoration: none;
+      margin-top: 8px;
+    }
+    .modal-map-btn:hover { background: var(--ocean-deep); }
+    .spot-card { cursor: pointer; transition: transform .15s, box-shadow .15s; }
+    .spot-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(10,35,66,.16); }
+  </style>
+</head>
+<body>
+
+<!-- ─── QR 코드 모달 ─── -->
+<div id="qr-modal-overlay" onclick="handleQrOverlayClick(event)">
+  <div class="qr-modal-box">
+    <div class="qr-modal-title" id="qr-modal-title">QR 코드</div>
+    <div class="qr-modal-sub"  id="qr-modal-sub"></div>
+
+    <!-- 탭 전환 버튼 -->
+    <div class="qr-tab-bar">
+      <button class="qr-tab-btn active" id="qr-tab-btn-qr"    onclick="switchQrTab('qr')">QR 코드</button>
+      <button class="qr-tab-btn"        id="qr-tab-btn-token" onclick="switchQrTab('token')">토큰 표시</button>
+    </div>
+
+    <!-- QR 코드 패널 -->
+    <div class="qr-panel active" id="qr-panel-qr">
+      <div id="qr-canvas-wrap"></div>
+    </div>
+
+    <!-- 토큰 패널 -->
+    <div class="qr-panel" id="qr-panel-token">
+      <p style="font-size:.78rem;color:var(--text-mid);margin-bottom:10px;line-height:1.5">
+        카메라 스캔이 불가한 경우 관리자 페이지의<br>
+        <strong>토큰 직접 입력</strong> 칸에 아래 값을 붙여넣으세요.
+      </p>
+      <div class="token-display-box" id="qr-token-text">—</div>
+      <button class="copy-btn" onclick="copyToken()">📋 토큰 복사</button>
+    </div>
+
+    <div class="qr-stamp-info" id="qr-stamp-info"></div>
+    <div class="qr-timer" id="qr-timer"></div>
+    <div class="qr-notice">관리자에게 이 QR 코드를 스캔해달라고 요청하세요.<br>스캔 후 스탬프가 자동으로 적립됩니다.</div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeQrModal()">닫기</button>
+  </div>
+</div>
+
+<!-- ─── 명소 상세 모달 ─── -->
+<div class="modal-overlay" id="spotModal" onclick="handleModalOverlayClick(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeSpotModal()">✕</button>
+    <div class="modal-hero" id="modalHero"></div>
+    <div class="modal-body" id="modalBody">
+      <div style="text-align:center;padding:40px;color:var(--text-light)">불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 헤더 ─── -->
+<header>
+  <div class="logo">
+    <span class="logo-icon">🌊</span>
+    <span>
+      부산오션패스
+      <span class="logo-sub">해양수도 여행 동반자</span>
+    </span>
+  </div>
+
+  <div id="header-user" style="display:none">
+    <span id="user-stamp-badge">0 스탬프</span>
+    <span id="header-nickname" style="font-size:.9rem;opacity:.85"></span>
+    <button class="btn btn-outline btn-sm" onclick="logout()">로그아웃</button>
+  </div>
+</header>
+
+<!-- ─── 로그인 화면 ─── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-hero">
+      <span class="wave">🌊</span>
+      <h1>부산오션패스</h1>
+      <p>해안선을 따라 도장을 찍고<br>동백전으로 돌려받으세요</p>
+    </div>
+
+    <!-- 로그인 / 회원가입 탭 -->
+    <div style="display:flex;gap:4px;background:var(--ocean-foam);border-radius:10px;padding:4px;margin-bottom:20px">
+      <button id="auth-tab-login"    class="sort-btn active" style="flex:1;border-radius:7px" onclick="switchAuthTab('login')">로그인</button>
+      <button id="auth-tab-register" class="sort-btn"        style="flex:1;border-radius:7px" onclick="switchAuthTab('register')">회원가입</button>
+    </div>
+
+    <div id="login-error" class="error-msg"></div>
+
+    <!-- 로그인 폼 -->
+    <div id="auth-panel-login">
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="email">이메일</label>
+          <input id="email" type="email" placeholder="test@example.com" required />
+        </div>
+        <div class="form-group">
+          <label for="password">비밀번호</label>
+          <input id="password" type="password" placeholder="비밀번호 입력" required />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px">
+          로그인
+        </button>
+      </form>
+      <p class="login-hint">
+        테스트 계정: test@example.com / test1234<br>
+        <a href="admin.html">관리자 페이지 바로가기</a>
+      </p>
+    </div>
+
+    <!-- 회원가입 폼 -->
+    <div id="auth-panel-register" style="display:none">
+      <form id="register-form" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="reg-nickname">닉네임 <span style="color:var(--danger)">*</span></label>
+          <input id="reg-nickname" type="text" placeholder="표시될 이름" required maxlength="20"/>
+        </div>
+        <div class="form-group">
+          <label for="reg-email">이메일 <span style="color:var(--danger)">*</span></label>
+          <input id="reg-email" type="email" placeholder="이메일 주소" required />
+        </div>
+        <div class="form-group">
+          <label for="reg-password">비밀번호 <span style="color:var(--danger)">*</span>
+            <span style="font-weight:400;color:var(--text-light)">(6자 이상)</span>
+          </label>
+          <input id="reg-password" type="password" placeholder="비밀번호 (6자 이상)" required minlength="6"/>
+        </div>
+        <div class="form-group">
+          <label for="reg-password2">비밀번호 확인 <span style="color:var(--danger)">*</span></label>
+          <input id="reg-password2" type="password" placeholder="비밀번호 재입력" required />
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:8px">
+          <input id="reg-foreigner" type="checkbox" style="width:auto;accent-color:var(--ocean-mid)"/>
+          <label for="reg-foreigner" style="margin:0;font-weight:400">외국인 방문객입니다</label>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px">
+          가입하기
+        </button>
+      </form>
+      <p class="login-hint">이미 계정이 있으신가요?
+        <a href="#" onclick="switchAuthTab('login');return false">로그인</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 대시보드 ─── -->
+<div id="dashboard">
+  <!-- 환영 배너 -->
+  <div class="welcome-banner">
+    <div>
+      <h2 id="welcome-name">안녕하세요!</h2>
+      <p>부산 해안선을 따라 오션패스를 수집해보세요</p>
+    </div>
+    <div class="stamp-count">
+      <div class="num" id="banner-stamps">0</div>
+      <div class="label">보유 스탬프</div>
+    </div>
+  </div>
+
+  <!-- 탭 메뉴 -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('spots',this)">명소 목록</button>
+    <button class="tab-btn" onclick="switchTab('map',this)">🗺 지도</button>
+    <button class="tab-btn" onclick="switchTab('progress',this)">내 진행률</button>
+    <button class="tab-btn" onclick="switchTab('rewards',this)">리워드 카탈로그</button>
+    <button class="tab-btn" onclick="switchTab('missions',this)">미션</button>
+    <button class="tab-btn" onclick="switchTab('wiki',this)">📝 위키 제보</button>
+  </div>
+
+  <!-- 탭 패널: 명소 목록 -->
+  <div id="tab-spots" class="tab-panel active">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div class="section-title" style="margin-bottom:0">부산 해양 명소 30곳</div>
+      <div class="sort-bar">
+        <span class="sort-label">정렬:</span>
+        <button class="sort-btn active" id="sort-default" onclick="sortSpots('default',this)">기본순</button>
+        <button class="sort-btn" id="sort-name"          onclick="sortSpots('name',this)">가나다순</button>
+        <button class="sort-btn" id="sort-dist"          onclick="sortSpots('distance',this)">📍 거리순</button>
+      </div>
+    </div>
+    <div id="spots-container">
+      <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- 탭 패널: 지도 (내 위치 버튼은 Leaflet 컨트롤로 삽입) -->
+  <div id="tab-map" class="tab-panel">
+    <div id="map"></div>
+  </div>
+
+  <!-- 탭 패널: 진행률 -->
+  <div id="tab-progress" class="tab-panel">
+    <div id="progress-overview-container">
+      <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- 탭 패널: 리워드 카탈로그 -->
+  <div id="tab-rewards" class="tab-panel">
+    <div class="section-title">스탬프로 교환 가능한 리워드</div>
+    <div id="rewards-container">
+      <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- 탭 패널: 미션 -->
+  <div id="tab-missions" class="tab-panel">
+    <div class="section-title">미션을 완료하고 보너스 스탬프를 획득하세요</div>
+    <div id="missions-container">
+      <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- 탭 패널: 위키 제보 -->
+  <div id="tab-wiki" class="tab-panel">
+
+    <!-- 제보 작성 폼 -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <h3>새 위키 제보 작성</h3>
+        <span style="font-size:.78rem;color:var(--text-light)">승인 시 스탬프 지급 · 관리자 심사 후 반영</span>
+      </div>
+      <div style="padding:20px">
+        <p style="font-size:.83rem;color:var(--text-mid);margin-bottom:16px;line-height:1.55">
+          부산 해양 명소에 대한 이벤트·꿀팁·안전 정보·숨은명소를 공유해주세요.<br>
+          제보가 <strong>관리자 심사</strong>를 통과하면 카테고리별 스탬프가 지급됩니다.
+        </p>
+        <form id="wiki-form" onsubmit="submitWiki(event)">
+          <div class="wiki-form-grid">
+            <div class="form-group">
+              <label for="wiki-spot">관련 명소 <span style="font-weight:400;color:var(--text-light)">(선택)</span></label>
+              <select id="wiki-spot">
+                <option value="">명소를 선택하세요</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="wiki-category">카테고리 <span style="color:var(--danger)">*</span></label>
+              <select id="wiki-category" onchange="onWikiCategoryChange()" required>
+                <option value="">카테고리 선택</option>
+                <option value="event">🎉 이벤트</option>
+                <option value="hidden_spot">🗺 숨은명소</option>
+                <option value="safety">⚠️ 안전정보</option>
+                <option value="tip">💡 꿀팁</option>
+                <option value="food">🍜 맛집</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="wiki-title">제목 <span style="color:var(--danger)">*</span></label>
+            <input id="wiki-title" type="text" placeholder="제목을 입력하세요" required maxlength="100"/>
+          </div>
+          <div class="form-group">
+            <label for="wiki-content">내용 <span style="color:var(--danger)">*</span>
+              <span style="font-weight:400;color:var(--text-light)">(20자 이상)</span>
+            </label>
+            <textarea id="wiki-content" rows="5" placeholder="내용을 입력하세요 (최소 20자)" required style="resize:vertical"></textarea>
+          </div>
+          <!-- 이벤트 카테고리 전용 날짜 입력 -->
+          <div id="wiki-event-dates" style="display:none">
+            <div class="wiki-form-grid">
+              <div class="form-group">
+                <label for="wiki-event-start">이벤트 시작일 <span style="color:var(--danger)">*</span></label>
+                <input id="wiki-event-start" type="date"/>
+              </div>
+              <div class="form-group">
+                <label for="wiki-event-end">이벤트 종료일 <span style="color:var(--danger)">*</span></label>
+                <input id="wiki-event-end" type="date"/>
+              </div>
+            </div>
+          </div>
+
+          <div id="wiki-reward-hint" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--ocean-light);border-radius:8px;font-size:.82rem;color:var(--ocean-deep)"></div>
+          <div id="wiki-submit-error" class="error-msg"></div>
+          <button type="submit" class="btn btn-primary" id="wiki-submit-btn" style="width:100%;justify-content:center;padding:11px">
+            제보 제출하기
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 내 제보 현황 -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <h3>내 제보 현황</h3>
+        <button class="btn btn-outline btn-sm" style="color:var(--ocean-mid);border-color:var(--ocean-mid)" onclick="loadMyWikis()">새로고침</button>
+      </div>
+      <div id="my-wiki-container" style="padding:4px 0">
+        <div class="empty-msg">제보 내역이 없습니다.</div>
+      </div>
+    </div>
+
+    <!-- 승인된 위키 목록 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="section-title" style="margin-bottom:0">승인된 위키 정보</div>
+      <select id="wiki-filter-cat" onchange="loadApprovedWikis()" style="padding:5px 10px;font-size:.82rem;border-radius:8px;border:1.5px solid var(--border)">
+        <option value="">전체</option>
+        <option value="event">이벤트</option>
+        <option value="hidden_spot">숨은명소</option>
+        <option value="safety">안전정보</option>
+        <option value="tip">꿀팁</option>
+        <option value="food">맛집</option>
+      </select>
+    </div>
+    <div id="wiki-list-container">
+      <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── 토스트 컨테이너 ─── -->
+<div id="toast-container"></div>
+
+<script>
+// ─────────────────────────────────────────
+// 전역 상태
+// ─────────────────────────────────────────
+let currentToken = localStorage.getItem('op_token') || null;
+let currentUser  = null;
+let tabLoaded    = {};
+let allSpots     = [];
+let userLocation = null;
+
+// ─────────────────────────────────────────
+// 유틸리티
+// ─────────────────────────────────────────
+
+/** 토스트 알림 표시 */
+function showToast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+/** API 호출 래퍼 */
+async function api(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (currentToken) headers['Authorization'] = `Bearer ${currentToken}`;
+  Object.assign(headers, options.headers || {});
+
+  const res = await fetch(path, { ...options, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw { status: res.status, message: data.message || '오류가 발생했습니다' };
+  return data;
+}
+
+/** Haversine 공식으로 두 좌표 사이 거리(km) 계산 */
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2
+    + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** 브라우저 위치 요청 — Promise 반환 */
+function getUserLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('이 브라우저는 위치 서비스를 지원하지 않습니다.'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => reject(new Error('위치 권한이 거부되었거나 위치를 가져올 수 없습니다.'))
+    );
+  });
+}
+
+/** 카테고리 한글 변환 */
+function catKo(cat) {
+  const map = { beach:'해변', port:'항만·포구', island:'섬·등대',
+                culture:'해양문화', trail:'산책로', food:'해양먹거리', hidden:'숨은명소' };
+  return map[cat] || cat;
+}
+
+/** 카테고리 아이콘 */
+function catIcon(cat) {
+  const map = { beach:'🏖', port:'⚓', island:'🏝', culture:'🏛', trail:'🚶', food:'🍱', hidden:'🗺' };
+  return map[cat] || '📍';
+}
+
+/** 혼잡도 배지 HTML */
+function congestionBadge(c) {
+  if (!c) return '';
+  const map = {
+    low:  { cls: 'congestion-low',  label: '여유 🟢', mult: 'x2.0' },
+    mid:  { cls: 'congestion-mid',  label: '보통 🟡', mult: 'x1.5' },
+    high: { cls: 'congestion-high', label: '혼잡 🔴', mult: 'x1.0' },
+  };
+  const info = map[c.level] || map.low;
+  return `<span class="congestion-badge ${info.cls}">${info.label} (${info.mult})</span>`;
+}
+
+// ─────────────────────────────────────────
+// 인증
+// ─────────────────────────────────────────
+
+/** 로그인 / 회원가입 탭 전환 */
+function switchAuthTab(tab) {
+  document.getElementById('auth-panel-login').style.display    = tab === 'login'    ? '' : 'none';
+  document.getElementById('auth-panel-register').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('auth-tab-login').classList.toggle('active',    tab === 'login');
+  document.getElementById('auth-tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('login-error').style.display = 'none';
+}
+
+/** 회원가입 처리 */
+async function handleRegister(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  const nickname  = document.getElementById('reg-nickname').value.trim();
+  const email     = document.getElementById('reg-email').value.trim();
+  const password  = document.getElementById('reg-password').value;
+  const password2 = document.getElementById('reg-password2').value;
+  const isForeigner = document.getElementById('reg-foreigner').checked ? 1 : 0;
+
+  if (password !== password2) {
+    errEl.textContent = '비밀번호가 일치하지 않습니다.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const data = await api('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ nickname, email, password, is_foreigner: isForeigner }),
+    });
+    currentToken = data.token;
+    currentUser  = data.user;
+    localStorage.setItem('op_token', currentToken);
+    showToast(`${nickname}님, 환영합니다!`, 'success');
+    enterDashboard();
+  } catch (err) {
+    errEl.textContent = err.message || '회원가입에 실패했습니다.';
+    errEl.style.display = 'block';
+  }
+}
+
+/** 로그인 처리 */
+async function handleLogin(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  try {
+    const data = await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    currentToken = data.token;
+    currentUser  = data.user;
+    localStorage.setItem('op_token', currentToken);
+    enterDashboard();
+  } catch (err) {
+    errEl.textContent = err.message || '로그인에 실패했습니다.';
+    errEl.style.display = 'block';
+  }
+}
+
+/** 로그아웃 */
+function logout() {
+  localStorage.removeItem('op_token');
+  currentToken = null;
+  currentUser  = null;
+  tabLoaded    = {};
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('header-user').style.display = 'none';
+  showToast('로그아웃 되었습니다.');
+}
+
+/** 대시보드 진입 */
+async function enterDashboard() {
+  // 유저 정보가 없으면 /me 호출
+  if (!currentUser) {
+    try {
+      const data = await api('/api/auth/me');
+      currentUser = data.user;
+    } catch {
+      logout();
+      return;
+    }
+  }
+
+  // 헤더 업데이트
+  document.getElementById('header-user').style.display = 'flex';
+  document.getElementById('header-nickname').textContent = currentUser.nickname;
+  document.getElementById('user-stamp-badge').textContent = `${currentUser.total_stamps || 0} 스탬프`;
+
+  // 배너 업데이트
+  document.getElementById('welcome-name').textContent = `안녕하세요, ${currentUser.nickname}님!`;
+  document.getElementById('banner-stamps').textContent = currentUser.total_stamps || 0;
+
+  // 화면 전환
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  // 첫 탭 데이터 로드
+  loadSpotsTab();
+}
+
+// ─────────────────────────────────────────
+// 탭 전환
+// ─────────────────────────────────────────
+
+function switchTab(name, btn) {
+  // 탭 버튼 활성화
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // 패널 전환
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+
+  // 데이터 로드 (처음 활성화 시에만)
+  if (!tabLoaded[name]) {
+    if (name === 'spots')    loadSpotsTab();
+    if (name === 'map')      loadMapTab();
+    if (name === 'progress') loadProgressTab();
+    if (name === 'rewards')  loadRewardsTab();
+    if (name === 'missions') loadMissionsTab();
+    if (name === 'wiki')     loadWikiTab();
+  } else if (name === 'map' && window._busanMap) {
+    // 이미 초기화된 지도 크기 재조정 (탭 전환 시 필요)
+    setTimeout(() => window._busanMap.invalidateSize(), 50);
+  }
+}
+
+// ─────────────────────────────────────────
+// 지도 탭
+// ─────────────────────────────────────────
+
+async function loadMapTab() {
+  tabLoaded.map = true;
+
+  // 탭 패널이 display:block 된 직후에 Leaflet 초기화
+  await new Promise(r => setTimeout(r, 60));
+
+  const map = L.map('map', { zoomControl: true }).setView([35.1796, 129.0756], 12);
+  window._busanMap = map;
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(map);
+
+  // 내 위치 버튼 — Leaflet Control로 삽입해야 지도 레이어 위에 올바르게 표시됨
+  const LocateControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const btn = L.DomUtil.create('button', 'map-locate-btn');
+      btn.innerHTML = '📍 내 위치';
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.disableScrollPropagation(btn);
+      btn.addEventListener('click', () => locateOnMap(btn));
+      return btn;
+    },
+  });
+  new LocateControl().addTo(map);
+
+  try {
+    const data = await api('/api/spots');
+    const spots = data.spots || [];
+    spots.forEach(s => { spotsCache[s.id] = s; });
+
+    spots.forEach(spot => {
+      const cat = spot.category || 'default';
+      const icon = catIcon(cat);
+
+      const divIcon = L.divIcon({
+        className: '',
+        html: `<div class="map-marker ${cat}"><span>${icon}</span></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+        popupAnchor: [0, -38],
+      });
+
+      const cBadge = spot.congestion ? congestionBadge(spot.congestion) : '';
+
+      L.marker([spot.latitude, spot.longitude], { icon: divIcon })
+        .addTo(map)
+        .bindPopup(`
+          <div style="min-width:160px">
+            <div class="map-popup-name">${spot.name}</div>
+            <div class="map-popup-cat">${catKo(cat)} · +${spot.base_stamp_count || 1} 스탬프</div>
+            ${cBadge}
+            <button class="map-popup-btn" onclick="openSpotModal('${spot.id}', window._spotsCache['${spot.id}'])">상세보기</button>
+          </div>
+        `, { maxWidth: 220 });
+    });
+
+    window._spotsCache = spotsCache;
+  } catch (err) {
+    showToast('지도 명소 로드 실패: ' + err.message, 'error');
+  }
+}
+
+async function locateOnMap(btn) {
+  btn.disabled = true;
+  btn.textContent = '위치 확인 중...';
+  try {
+    if (!userLocation) userLocation = await getUserLocation();
+    const map = window._busanMap;
+    if (!map) return;
+
+    if (window._myLocCircle)  { map.removeLayer(window._myLocCircle);  window._myLocCircle  = null; }
+    if (window._myLocMarker)  { map.removeLayer(window._myLocMarker);  window._myLocMarker  = null; }
+
+    const { lat, lng } = userLocation;
+
+    window._myLocCircle = L.circle([lat, lng], {
+      radius: 150,
+      color: '#1e88e5',
+      fillColor: '#90caf9',
+      fillOpacity: 0.25,
+      weight: 2,
+    }).addTo(map);
+
+    window._myLocMarker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:18px;height:18px;border-radius:50%;background:#1e88e5;border:3px solid #fff;box-shadow:0 0 0 4px rgba(30,136,229,.35)"></div>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      }),
+      zIndexOffset: 1000,
+    }).addTo(map).bindPopup('<div style="font-weight:700;font-size:.9rem">📍 현재 위치</div>').openPopup();
+
+    map.setView([lat, lng], 14);
+    showToast('현재 위치로 이동했습니다.', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📍 내 위치';
+  }
+}
+
+// ─────────────────────────────────────────
+// 명소 목록 탭
+// ─────────────────────────────────────────
+
+async function loadSpotsTab() {
+  tabLoaded.spots = true;
+  const container = document.getElementById('spots-container');
+
+  try {
+    const data = await api('/api/spots');
+    allSpots = data.spots || [];
+
+    if (allSpots.length === 0) {
+      container.innerHTML = '<div class="empty-msg">명소 데이터가 없습니다.</div>';
+      return;
+    }
+
+    allSpots.forEach(s => { spotsCache[s.id] = s; });
+    renderSpotsGrid(allSpots);
+  } catch (err) {
+    container.innerHTML = `<div class="empty-msg">명소를 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+function renderSpotsGrid(spots) {
+  document.getElementById('spots-container').innerHTML =
+    `<div class="spots-grid">${spots.map(renderSpotCard).join('')}</div>`;
+}
+
+async function sortSpots(mode, btn) {
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (allSpots.length === 0) return;
+
+  if (mode === 'name') {
+    renderSpotsGrid([...allSpots].sort((a, b) => a.name.localeCompare(b.name, 'ko')));
+    return;
+  }
+
+  if (mode === 'distance') {
+    btn.disabled = true;
+    btn.textContent = '위치 확인 중...';
+    try {
+      if (!userLocation) userLocation = await getUserLocation();
+      const sorted = allSpots
+        .map(s => ({ ...s, _distance: haversineDistance(userLocation.lat, userLocation.lng, s.latitude, s.longitude) }))
+        .sort((a, b) => a._distance - b._distance);
+      renderSpotsGrid(sorted);
+      showToast('가장 가까운 명소 순으로 정렬했습니다.', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('sort-default').classList.add('active');
+      renderSpotsGrid(allSpots);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📍 거리순';
+    }
+    return;
+  }
+
+  renderSpotsGrid(allSpots);
+}
+
+function renderSpotCard(spot) {
+  const c = spot.congestion;
+  const distHtml = spot._distance != null
+    ? `<span class="spot-distance">${spot._distance < 1 ? Math.round(spot._distance * 1000) + 'm' : spot._distance.toFixed(1) + 'km'}</span>`
+    : '';
+  return `
+  <div class="spot-card" data-spot-id="${spot.id}" onclick="handleSpotCardClick(this)">
+    <div class="spot-card-img cat-${spot.category}">
+      <span>${catIcon(spot.category)}</span>
+    </div>
+    <div class="spot-card-body">
+      <div class="spot-name">${spot.name}</div>
+      <div class="spot-category">${catKo(spot.category)} · ${spot.address || ''}</div>
+      <div class="spot-desc">${spot.description || ''}</div>
+    </div>
+    <div class="spot-footer">
+      ${congestionBadge(c)}
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+        ${distHtml}
+        <span style="font-size:.75rem;color:var(--text-light)">+${spot.base_stamp_count || 1} 스탬프</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─────────────────────────────────────────
+// 명소 상세 모달
+// ─────────────────────────────────────────
+
+// spot 카드 목록 캐시 (클릭 시 기본 정보 즉시 표시용)
+let spotsCache = {};
+
+function handleSpotCardClick(el) {
+  const id = el.dataset.spotId;
+  openSpotModal(id, spotsCache[id] || { id, name: '', category: 'beach', description: '', address: '', congestion: {} });
+}
+
+function openSpotModal(id, cachedSpot) {
+  const overlay = document.getElementById('spotModal');
+  const hero    = document.getElementById('modalHero');
+  const body    = document.getElementById('modalBody');
+
+  // 카테고리 배경 + 아이콘 즉시 표시
+  hero.className = `modal-hero cat-${cachedSpot.category}`;
+  hero.textContent = catIcon(cachedSpot.category);
+  body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light)">불러오는 중...</div>';
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // 상세 API 호출
+  fetch(`/api/spots/${id}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) throw new Error(data.error || '조회 실패');
+      renderModalBody(data.spot);
+    })
+    .catch(err => {
+      // API 실패 시 캐시된 기본 정보로 렌더링
+      renderModalBody(cachedSpot);
+    });
+}
+
+function renderModalBody(spot) {
+  const body = document.getElementById('modalBody');
+  const c = spot.congestion || {};
+  const stats = spot.stats || {};
+  const reviews = spot.recent_reviews || [];
+  const wikis = spot.recent_wikis || [];
+
+  const starsHtml = stats.avg_rating
+    ? `<span style="color:#fb8c00">${'★'.repeat(Math.round(stats.avg_rating))}${'☆'.repeat(5 - Math.round(stats.avg_rating))}</span> <span style="font-size:.8rem;color:var(--text-light)">${stats.avg_rating}점</span>`
+    : '<span style="color:var(--text-light);font-size:.82rem">리뷰 없음</span>';
+
+  const reviewsHtml = reviews.length > 0
+    ? reviews.map(r => `
+        <div class="modal-review">
+          <div>${r.content}</div>
+          <div class="review-meta">${r.author_nickname} · ${'★'.repeat(r.rating || 0)} · ${r.like_count || 0}명 도움</div>
+        </div>`).join('')
+    : '<div style="color:var(--text-light);font-size:.85rem;padding:8px 0">아직 리뷰가 없습니다.</div>';
+
+  const wikisHtml = wikis.length > 0
+    ? wikis.map(w => `
+        <div class="modal-wiki">
+          <span class="wiki-cat">${w.category}</span>
+          <div style="font-weight:600">${w.title}</div>
+          <div style="color:var(--text-light);font-size:.78rem;margin-top:2px">${w.author_nickname} · 👍 ${w.helpful_count || 0}</div>
+        </div>`).join('')
+    : '<div style="color:var(--text-light);font-size:.85rem;padding:8px 0">등록된 위키 정보가 없습니다.</div>';
+
+  const mapsUrl = `https://map.kakao.com/link/map/${encodeURIComponent(spot.name)},${spot.latitude},${spot.longitude}`;
+
+  body.innerHTML = `
+    <div class="modal-title">${spot.name}</div>
+    <div class="modal-subtitle">${catKo(spot.category)} · ${spot.address || ''}</div>
+
+    <div class="modal-congestion-row">
+      <span style="font-size:1.2rem">${c.emoji || '🟢'}</span>
+      <span>현재 혼잡도: <strong>${c.label || '여유'}</strong></span>
+      <span style="margin-left:auto;font-size:.8rem;color:var(--text-light)">스탬프 ×${c.multiplier || 1}</span>
+    </div>
+
+    <div class="modal-desc">${spot.description || ''}</div>
+
+    <div class="modal-stats">
+      <div class="modal-stat">
+        <div class="val">${stats.unique_visitors || 0}</div>
+        <div class="lbl">방문자</div>
+      </div>
+      <div class="modal-stat">
+        <div class="val">${stats.total_stamps || 0}</div>
+        <div class="lbl">스탬프 발급</div>
+      </div>
+      <div class="modal-stat">
+        <div class="val">${stats.review_count || 0}</div>
+        <div class="lbl">리뷰</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">${starsHtml}</div>
+
+    <div class="modal-section-title">최근 리뷰</div>
+    ${reviewsHtml}
+
+    <div class="modal-section-title">위키 정보</div>
+    ${wikisHtml}
+
+    <button class="btn btn-success" style="width:100%;justify-content:center;padding:12px;margin-top:8px;font-size:.95rem"
+      onclick="openQrModal('${spot.id}', '${spot.name.replace(/'/g,"\\'")}', ${spot.base_stamp_count || 1})">
+      📲 스탬프 QR 코드 발급
+    </button>
+    <a class="modal-map-btn" href="${mapsUrl}" target="_blank" rel="noopener">🗺 카카오맵에서 보기</a>
+  `;
+}
+
+function closeSpotModal() {
+  document.getElementById('spotModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function handleModalOverlayClick(e) {
+  if (e.target === document.getElementById('spotModal')) closeSpotModal();
+}
+
+// ESC 키로 모달 닫기
+// ESC: QR 모달 함수 쪽으로 통합됨
+
+// ─────────────────────────────────────────
+// 진행률 탭
+// ─────────────────────────────────────────
+
+async function loadProgressTab() {
+  tabLoaded.progress = true;
+  const container = document.getElementById('progress-overview-container');
+
+  try {
+    const data = await api('/api/stamps/progress');
+    const p = data.progress || data;
+
+    const visitedCount  = p.visited_count  || 0;
+    const totalCount    = p.total_spots    || 30;
+    const pct = p.progress_percent != null ? Math.round(p.progress_percent) : (totalCount > 0 ? Math.round((visitedCount / totalCount) * 100) : 0);
+    const spots = p.next_recommended || [];
+
+    container.innerHTML = `
+      <div class="progress-overview">
+        <div class="stat-card">
+          <div class="icon">📍</div>
+          <div class="val">${visitedCount}</div>
+          <div class="lbl">방문한 명소</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon">🗺</div>
+          <div class="val">${totalCount}</div>
+          <div class="lbl">전체 명소</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon">🎯</div>
+          <div class="val">${pct}%</div>
+          <div class="lbl">완료율</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon">🏅</div>
+          <div class="val">${currentUser?.total_stamps || 0}</div>
+          <div class="lbl">보유 스탬프</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>명소별 방문 현황</h3>
+          <span style="font-size:.82rem;color:var(--text-light)">${visitedCount} / ${totalCount}</span>
+        </div>
+        <div class="progress-bar-wrap" style="margin:0 20px 4px;border-radius:0">
+          <div class="progress-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="progress-label" style="padding:0 20px 12px;font-size:.78rem;color:var(--text-light)">${pct}% 완료</div>
+        <div class="spot-progress-list">
+          ${spots.map(s => `
+            <div class="spot-progress-item">
+              <div class="spot-check ${s.visited ? 'done' : 'undone'}">
+                ${s.visited ? '✓' : '○'}
+              </div>
+              <div style="flex:1">
+                <div class="spot-progress-name">${s.name}</div>
+                <div class="spot-progress-cat">${catKo(s.category)}</div>
+              </div>
+              ${s.visited ? '<span style="font-size:.75rem;color:var(--success);font-weight:700">방문완료</span>' : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  } catch (err) {
+    container.innerHTML = `<div class="empty-msg">진행률을 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────
+// 리워드 카탈로그 탭
+// ─────────────────────────────────────────
+
+async function loadRewardsTab() {
+  tabLoaded.rewards = true;
+  const container = document.getElementById('rewards-container');
+
+  try {
+    const data = await api('/api/rewards/catalog');
+    const catalog = data.catalog || [];
+
+    if (catalog.length === 0) {
+      container.innerHTML = '<div class="empty-msg">리워드가 없습니다.</div>';
+      return;
+    }
+
+    const myStamps = currentUser?.total_stamps || 0;
+
+    const rewardIcons = {
+      dongbaekjeon: '💳',
+      busan_gift:   '🎁',
+      special_box:  '📦',
+      qr_coupon:    '🎫',
+    };
+
+    container.innerHTML = `
+      <p style="font-size:.85rem;color:var(--text-mid);margin-bottom:14px">
+        현재 보유 스탬프: <strong style="color:var(--ocean-mid)">${myStamps}개</strong>
+      </p>
+      <div class="rewards-grid">
+        ${catalog.map(item => {
+          const icon = rewardIcons[item.type] || '🎁';
+          const canRedeem = myStamps >= item.stamp_cost;
+          return `
+          <div class="reward-card">
+            <div class="reward-icon-wrap">${icon}</div>
+            <div class="reward-name">${item.name || item.type}</div>
+            <div class="reward-desc">${item.description || ''}</div>
+            ${item.foreigner_note ? `<div class="reward-foreigner-note">외국인: ${item.foreigner_note}</div>` : ''}
+            <div class="reward-footer">
+              <span class="reward-cost">${item.stamp_cost} 스탬프</span>
+              <button class="btn btn-primary btn-sm"
+                ${canRedeem ? '' : 'disabled style="opacity:.5;cursor:not-allowed"'}
+                onclick="redeemReward('${item.type}', ${item.stamp_cost}, '${item.name || item.type}')">
+                ${canRedeem ? '교환하기' : '스탬프 부족'}
+              </button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } catch (err) {
+    container.innerHTML = `<div class="empty-msg">리워드를 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+/** 리워드 교환 */
+async function redeemReward(type, cost, name) {
+  if (!confirm(`${name}(을)를 ${cost} 스탬프로 교환하시겠습니까?`)) return;
+
+  try {
+    const data = await api('/api/rewards/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ reward_type: type }),
+    });
+    showToast(`${name} 교환 완료!`, 'success');
+
+    // 스탬프 수 업데이트
+    if (data.reward) {
+      currentUser.total_stamps = (currentUser.total_stamps || 0) - cost;
+      document.getElementById('user-stamp-badge').textContent = `${currentUser.total_stamps} 스탬프`;
+      document.getElementById('banner-stamps').textContent = currentUser.total_stamps;
+    }
+
+    // 탭 재로드
+    tabLoaded.rewards = false;
+    loadRewardsTab();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ─────────────────────────────────────────
+// 미션 탭
+// ─────────────────────────────────────────
+
+async function loadMissionsTab() {
+  tabLoaded.missions = true;
+  const container = document.getElementById('missions-container');
+
+  try {
+    const token = currentToken;
+    // 미션 목록은 인증 없이도 조회 가능하지만 진행률 포함하려면 토큰 필요
+    const data = await api('/api/missions');
+    const missions = data.missions || [];
+
+    if (missions.length === 0) {
+      container.innerHTML = '<div class="empty-msg">미션이 없습니다.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="missions-list">
+        ${missions.map(m => {
+          const total    = m.required_count  || 0;
+          const progress = m.visited_count   || 0;
+          const pct      = total > 0 ? Math.round((progress / total) * 100) : 0;
+          const done     = m.is_completed || false;
+
+          return `
+          <div class="mission-card">
+            <div class="mission-top">
+              <div class="mission-icon-wrap">${m.icon || '🎯'}</div>
+              <div style="flex:1">
+                <div class="mission-name">${m.name_ko}</div>
+                <div class="mission-desc">${m.description || ''}</div>
+              </div>
+              <span class="mission-badge ${done ? 'complete' : 'incomplete'}">
+                ${done ? '완료' : `${progress}/${total}`}
+              </span>
+            </div>
+
+            ${!done ? `
+            <div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width:${pct}%"></div>
+              </div>
+              <div class="progress-label">${pct}% 진행중</div>
+            </div>` : ''}
+
+            <div class="mission-meta">
+              <span class="mission-bonus">보너스 +${m.bonus_stamps} 스탬프</span>
+              ${m.bonus_reward ? `<span style="font-size:.8rem;color:var(--text-mid)">추가 보상: ${m.bonus_reward}</span>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } catch (err) {
+    container.innerHTML = `<div class="empty-msg">미션을 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────
+// 위키 제보 탭
+// ─────────────────────────────────────────
+
+const WIKI_CAT_LABEL = { event:'이벤트', hidden_spot:'숨은명소', safety:'안전정보', tip:'꿀팁', food:'맛집' };
+const WIKI_CAT_ICON  = { event:'🎉', hidden_spot:'🗺', safety:'⚠️', tip:'💡', food:'🍜' };
+const WIKI_REWARDS   = { event:10, hidden_spot:15, safety:20, tip:5, food:8 };
+
+async function loadWikiTab() {
+  tabLoaded.wiki = true;
+  // 명소 드롭다운 채우기 (아직 안 로드된 경우)
+  if (allSpots.length === 0) {
+    try {
+      const data = await api('/api/spots');
+      allSpots = data.spots || [];
+      allSpots.forEach(s => { spotsCache[s.id] = s; });
+    } catch (_) {}
+  }
+  const spotSelect = document.getElementById('wiki-spot');
+  if (spotSelect.options.length <= 1 && allSpots.length > 0) {
+    allSpots.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      spotSelect.appendChild(opt);
+    });
+  }
+
+  loadMyWikis();
+  loadApprovedWikis();
+}
+
+async function loadMyWikis() {
+  const container = document.getElementById('my-wiki-container');
+  try {
+    const data = await api('/api/wiki/my');
+    const posts = data.data || [];
+    if (posts.length === 0) {
+      container.innerHTML = '<div class="empty-msg" style="padding:20px">아직 제보한 내역이 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = posts.map(p => {
+      const statusCls = { pending:'wiki-status-pending', approved:'wiki-status-approved', rejected:'wiki-status-rejected' }[p.status] || '';
+      const statusLbl = { pending:'심사 대기', approved:'승인됨', rejected:'반려됨' }[p.status] || p.status;
+      const noteHtml = p.admin_note
+        ? `<div class="wiki-admin-note">관리자 메모: ${p.admin_note}</div>` : '';
+      const rewardHtml = p.status === 'approved' && p.reward_stamps
+        ? `<div class="wiki-reward-note">+${p.reward_stamps} 스탬프 지급됨</div>` : '';
+      return `
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div>
+            <span class="wiki-cat-chip">${WIKI_CAT_ICON[p.category]||''} ${WIKI_CAT_LABEL[p.category]||p.category}</span>
+            <div class="wiki-card-title">${p.title}</div>
+            <div class="wiki-card-meta">${p.spot_name_ko ? p.spot_name_ko + ' · ' : ''}${p.created_at?.substring(0,10)}</div>
+          </div>
+          <span class="wiki-status-badge ${statusCls}" style="flex-shrink:0">${statusLbl}</span>
+        </div>
+        ${noteHtml}${rewardHtml}
+      </div>`;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="empty-msg">내 제보를 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+async function loadApprovedWikis() {
+  const container = document.getElementById('wiki-list-container');
+  container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  const cat = document.getElementById('wiki-filter-cat').value;
+  try {
+    const qs = cat ? `?category=${cat}` : '';
+    const data = await api(`/api/wiki/${qs}`);
+    const posts = data.data || [];
+    if (posts.length === 0) {
+      container.innerHTML = '<div class="empty-msg">등록된 위키 정보가 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = posts.map(p => `
+      <div class="wiki-card">
+        <span class="wiki-cat-chip">${WIKI_CAT_ICON[p.category]||''} ${WIKI_CAT_LABEL[p.category]||p.category}</span>
+        <div class="wiki-card-title">${p.title}</div>
+        <div class="wiki-card-meta">
+          ${p.spot_name_ko ? '📍 '+p.spot_name_ko+' · ' : ''}
+          ${p.author_nickname} · ${p.created_at?.substring(0,10)} · 👍 ${p.helpful_count||0}
+        </div>
+        <div class="wiki-card-content">${p.content || ''}</div>
+        ${p.category==='event' && p.event_start_date
+          ? `<div style="font-size:.76rem;color:var(--wave-teal);margin-top:6px">기간: ${p.event_start_date} ~ ${p.event_end_date||'미정'}</div>` : ''}
+      </div>`).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="empty-msg">위키를 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+function onWikiCategoryChange() {
+  const cat = document.getElementById('wiki-category').value;
+  const eventDates = document.getElementById('wiki-event-dates');
+  const hint = document.getElementById('wiki-reward-hint');
+
+  eventDates.style.display = (cat === 'event') ? 'block' : 'none';
+
+  if (cat && WIKI_REWARDS[cat]) {
+    hint.style.display = 'block';
+    hint.innerHTML = `<strong>${WIKI_CAT_ICON[cat]} ${WIKI_CAT_LABEL[cat]}</strong> 카테고리 — 승인 시 최대 <strong style="color:var(--wave-teal)">${WIKI_REWARDS[cat]}개</strong> 스탬프 지급`;
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+async function submitWiki(e) {
+  e.preventDefault();
+  const errEl  = document.getElementById('wiki-submit-error');
+  const btn    = document.getElementById('wiki-submit-btn');
+  errEl.style.display = 'none';
+
+  const spot_id   = document.getElementById('wiki-spot').value || null;
+  const category  = document.getElementById('wiki-category').value;
+  const title     = document.getElementById('wiki-title').value.trim();
+  const content   = document.getElementById('wiki-content').value.trim();
+  const evtStart  = document.getElementById('wiki-event-start').value || null;
+  const evtEnd    = document.getElementById('wiki-event-end').value   || null;
+
+  if (content.length < 20) {
+    errEl.textContent = '내용은 20자 이상 입력해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '제출 중...';
+
+  try {
+    const body = { title, content, category };
+    if (spot_id)  body.spot_id = spot_id;
+    if (evtStart) body.event_start_date = evtStart;
+    if (evtEnd)   body.event_end_date   = evtEnd;
+
+    const data = await api('/api/wiki/', { method:'POST', body: JSON.stringify(body) });
+    showToast(`제보가 접수됐습니다! 승인 시 최대 ${data.expected_reward_stamps}개 스탬프 지급 예정`, 'success');
+
+    // 폼 초기화
+    document.getElementById('wiki-form').reset();
+    document.getElementById('wiki-event-dates').style.display = 'none';
+    document.getElementById('wiki-reward-hint').style.display = 'none';
+
+    // 내 제보 목록 갱신
+    loadMyWikis();
+  } catch (err) {
+    errEl.textContent = err.message || '제출 중 오류가 발생했습니다.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '제보 제출하기';
+  }
+}
+
+// ─────────────────────────────────────────
+// QR 코드 모달
+// ─────────────────────────────────────────
+
+let _qrTimerInterval = null;
+let _currentQrToken  = null;
+
+function switchQrTab(tab) {
+  document.getElementById('qr-panel-qr').classList.toggle('active',    tab === 'qr');
+  document.getElementById('qr-panel-token').classList.toggle('active', tab === 'token');
+  document.getElementById('qr-tab-btn-qr').classList.toggle('active',    tab === 'qr');
+  document.getElementById('qr-tab-btn-token').classList.toggle('active', tab === 'token');
+}
+
+function copyToken() {
+  if (!_currentQrToken) return;
+  navigator.clipboard.writeText(_currentQrToken)
+    .then(() => showToast('토큰이 클립보드에 복사됐습니다.', 'success'))
+    .catch(() => showToast('복사 실패 — 직접 선택 후 복사하세요.', 'error'));
+}
+
+async function openQrModal(spotId, spotName, baseStamps) {
+  const overlay   = document.getElementById('qr-modal-overlay');
+  const wrap      = document.getElementById('qr-canvas-wrap');
+  const timerEl   = document.getElementById('qr-timer');
+  const titleEl   = document.getElementById('qr-modal-title');
+  const subEl     = document.getElementById('qr-modal-sub');
+  const stampInfo = document.getElementById('qr-stamp-info');
+
+  // 초기화 — QR 탭으로 복귀
+  switchQrTab('qr');
+  wrap.innerHTML = '<div class="spinner-wrap" style="padding:24px"><div class="spinner"></div></div>';
+  timerEl.textContent   = '';
+  timerEl.className     = 'qr-timer';
+  titleEl.textContent   = spotName;
+  subEl.textContent     = '스탬프 QR 코드';
+  stampInfo.textContent = '';
+  document.getElementById('qr-token-text').textContent = '—';
+  _currentQrToken = null;
+  clearInterval(_qrTimerInterval);
+
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    // GPS 좌표 취득 시도 (테스터 계정이 아닌 경우 서버가 필수 검증)
+    let gpsPayload = {};
+    try {
+      if (userLocation) {
+        gpsPayload = { user_lat: userLocation.lat, user_lng: userLocation.lng };
+      } else {
+        const pos = await getUserLocation();
+        userLocation = pos;
+        gpsPayload = { user_lat: pos.lat, user_lng: pos.lng };
+      }
+    } catch (_) { /* 테스터 계정은 GPS 없어도 통과 — 일반 계정이면 서버가 reject */ }
+
+    const data = await api('/api/qr/generate', {
+      method: 'POST',
+      body: JSON.stringify({ spot_id: spotId, ...gpsPayload }),
+    });
+
+    _currentQrToken = data.token;
+
+    // QR 이미지 생성
+    wrap.innerHTML = '<div id="qr-actual"></div>';
+    new QRCode(document.getElementById('qr-actual'), {
+      text:         data.token,
+      width:        200,
+      height:       200,
+      colorDark:    '#0a2342',
+      colorLight:   '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+
+    // 토큰 탭에 값 채우기
+    document.getElementById('qr-token-text').textContent = data.token;
+
+    stampInfo.innerHTML = `기본 스탬프 <strong style="color:var(--ocean-mid)">${baseStamps}개</strong> (혼잡도 배율 적용)`;
+
+    // 카운트다운
+    let remaining = data.ttl_seconds;
+    const update = () => {
+      if (remaining <= 0) {
+        clearInterval(_qrTimerInterval);
+        timerEl.textContent = '만료됨 — 닫고 다시 발급하세요';
+        timerEl.classList.add('warning');
+        return;
+      }
+      const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+      const s = String(remaining % 60).padStart(2, '0');
+      timerEl.textContent = `유효 시간 ${m}:${s}`;
+      timerEl.classList.toggle('warning', remaining <= 60);
+      remaining--;
+    };
+    update();
+    _qrTimerInterval = setInterval(update, 1000);
+
+  } catch (err) {
+    wrap.innerHTML = `<div style="padding:24px;color:var(--danger);font-size:.88rem">${err.message}</div>`;
+  }
+}
+
+function closeQrModal() {
+  document.getElementById('qr-modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+  clearInterval(_qrTimerInterval);
+}
+
+function handleQrOverlayClick(e) {
+  if (e.target === document.getElementById('qr-modal-overlay')) closeQrModal();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeQrModal();
+    closeSpotModal();
+  }
+});
+
+// ─────────────────────────────────────────
+// 페이지 초기화 — 토큰이 있으면 자동 로그인
+// ─────────────────────────────────────────
+(async function init() {
+  if (currentToken) {
+    try {
+      const data = await api('/api/auth/me');
+      currentUser = data.user;
+      enterDashboard();
+    } catch {
+      // 토큰 만료 등 — 로그인 화면 유지
+      localStorage.removeItem('op_token');
+      currentToken = null;
+    }
+  }
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════
+     AI 챗봇 UI
+════════════════════════════════════════════ -->
+<style>
+  #chatbot-btn {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--ocean-mid), var(--wave-teal));
+    color: #fff;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(21,101,192,.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9000;
+    transition: transform .2s, box-shadow .2s;
+  }
+  #chatbot-btn:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(21,101,192,.55); }
+
+  #chatbot-modal {
+    position: fixed;
+    bottom: 96px;
+    right: 28px;
+    width: 360px;
+    max-height: 520px;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(10,35,66,.22);
+    display: none;
+    flex-direction: column;
+    z-index: 9001;
+    overflow: hidden;
+  }
+  #chatbot-modal.open { display: flex; }
+
+  .chat-header {
+    background: linear-gradient(135deg, var(--ocean-deep), var(--ocean-mid));
+    color: #fff;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: .95rem;
+  }
+  .chat-header-icon { font-size: 1.3rem; }
+  .chat-header-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,.8);
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .chat-header-close:hover { color: #fff; }
+
+  #chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 14px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--ocean-foam);
+  }
+  .chat-bubble {
+    max-width: 82%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: .875rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .chat-bubble.bot {
+    background: #fff;
+    border: 1px solid var(--border);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+  .chat-bubble.user {
+    background: var(--ocean-mid);
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+  .chat-bubble.typing { color: var(--text-light); font-style: italic; }
+
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    background: #fff;
+  }
+  #chat-input {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: .875rem;
+    outline: none;
+    resize: none;
+    font-family: inherit;
+  }
+  #chat-input:focus { border-color: var(--ocean-bright); }
+  #chat-send-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--ocean-mid);
+    color: #fff;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background .15s;
+  }
+  #chat-send-btn:hover { background: var(--ocean-deep); }
+  #chat-send-btn:disabled { background: var(--border); cursor: default; }
+</style>
+
+<!-- 챗봇 토글 버튼 (로그인 후 표시) -->
+<button id="chatbot-btn" title="AI 도우미" onclick="toggleChatbot()">🤖</button>
+
+<!-- 채팅 모달 -->
+<div id="chatbot-modal">
+  <div class="chat-header">
+    <span class="chat-header-icon">🤖</span>
+    <span>오션패스 AI 도우미</span>
+    <button class="chat-header-close" onclick="toggleChatbot()" title="닫기">✕</button>
+  </div>
+  <div id="chat-messages">
+    <div class="chat-bubble bot">안녕하세요! 부산오션패스 AI 도우미입니다. 🌊<br>스탬프 적립, 리워드 교환, 위키 제보 등 서비스 이용 방법에 대해 물어보세요!</div>
+  </div>
+  <div class="chat-input-row">
+    <textarea id="chat-input" rows="1" placeholder="질문을 입력하세요…" onkeydown="chatInputKeydown(event)"></textarea>
+    <button id="chat-send-btn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<script>
+// ─── 챗봇 ───────────────────────────────────
+let chatOpen = false;
+
+function toggleChatbot() {
+  chatOpen = !chatOpen;
+  document.getElementById('chatbot-modal').classList.toggle('open', chatOpen);
+  if (chatOpen) {
+    document.getElementById('chat-input').focus();
+    scrollChatToBottom();
+  }
+}
+
+function showChatbotBtn(visible) {
+  document.getElementById('chatbot-btn').style.display = visible ? 'flex' : 'none';
+  if (!visible && chatOpen) toggleChatbot();
+}
+
+function scrollChatToBottom() {
+  const box = document.getElementById('chat-messages');
+  box.scrollTop = box.scrollHeight;
+}
+
+function appendBubble(text, role) {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `chat-bubble ${role}`;
+  div.textContent = text;
+  box.appendChild(div);
+  scrollChatToBottom();
+  return div;
+}
+
+function chatInputKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat();
+  }
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send-btn');
+  const message = input.value.trim();
+  if (!message) return;
+
+  input.value = '';
+  sendBtn.disabled = true;
+  appendBubble(message, 'user');
+
+  const typingBubble = appendBubble('입력 중…', 'bot typing');
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`,
+      },
+      body: JSON.stringify({ message }),
+    });
+    const data = await res.json();
+    typingBubble.classList.remove('typing');
+    typingBubble.textContent = data.success ? data.reply : (data.message || '오류가 발생했습니다.');
+  } catch {
+    typingBubble.classList.remove('typing');
+    typingBubble.textContent = '네트워크 오류가 발생했습니다. 다시 시도해주세요.';
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+    scrollChatToBottom();
+  }
+}
+
+// 대시보드 진입 시 챗봇 버튼 표시, 로그아웃 시 숨김을 원래 함수에 연결
+const _origEnterDashboard = enterDashboard;
+enterDashboard = async function(...args) {
+  await _origEnterDashboard.apply(this, args);
+  showChatbotBtn(true);
+};
+const _origLogout = logout;
+logout = function(...args) {
+  showChatbotBtn(false);
+  _origLogout.apply(this, args);
+};
+</script>
+</body>
+</html>
