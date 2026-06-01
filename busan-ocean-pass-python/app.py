@@ -27,6 +27,7 @@ PUBLIC_DIR = os.path.join(os.path.dirname(__file__), 'public')
 
 def create_app():
     app = Flask(__name__, static_folder=PUBLIC_DIR, static_url_path='')
+    app.url_map.strict_slashes = False
     CORS(app, resources={'/*': {'origins': '*'}},
          methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
          allow_headers=['Content-Type', 'Authorization'])
