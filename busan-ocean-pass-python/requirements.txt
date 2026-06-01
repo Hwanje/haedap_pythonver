@@ -4,3 +4,4 @@ PyJWT
 bcrypt
 python-dotenv
 google-genai
+gunicorn

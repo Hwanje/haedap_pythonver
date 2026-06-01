@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: busan-ocean-pass
+    env: python
+    rootDir: busan-ocean-pass-python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_DAYS
+        value: 7
+      - key: CONGESTION_WINDOW_MINUTES
+        value: 60
+      - key: CONGESTION_HIGH_THRESHOLD
+        value: 20
+      - key: CONGESTION_MID_THRESHOLD
+        value: 8
+      - key: GPS_VERIFY_RADIUS_METERS
+        value: 200
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MASTER_ADMIN_EMAIL
+        sync: false
+      - key: MASTER_ADMIN_PASSWORD
+        sync: false
