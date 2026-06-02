@@ -3,7 +3,7 @@ services:
     name: busan-ocean-pass
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: cd busan-ocean-pass-python && gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    startCommand: cd busan-ocean-pass-python && gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     envVars:
       - key: FLASK_ENV
         value: production
