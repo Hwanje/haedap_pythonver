@@ -166,6 +166,30 @@ def sync_master_admin():
     conn.close()
 
 
+def seed_test_accounts():
+    accounts = [
+        ('test@example.com', 'test1234', '테스트유저'),
+    ]
+    conn = _make_conn()
+    for email, password, nickname in accounts:
+        existing = conn.execute(
+            'SELECT id FROM users WHERE email = ?', (email,)
+        ).fetchone()
+        if not existing:
+            user_id = str(uuid.uuid4())
+            pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(10)).decode()
+            conn.execute(
+                "INSERT INTO users (id, nickname, email, password_hash, language, role) "
+                "VALUES (?, ?, ?, ?, 'ko', 'user')",
+                (user_id, nickname, email, pw_hash)
+            )
+            print(f'[시드 계정] 생성 — {email}')
+        else:
+            print(f'[시드 계정] 이미 존재 — {email}')
+    conn.commit()
+    conn.close()
+
+
 if __name__ == '__main__':
     PORT = int(os.getenv('PORT', '3000'))
 
@@ -176,6 +200,7 @@ if __name__ == '__main__':
 
     init_db()
     sync_master_admin()
+    seed_test_accounts()
 
     app = create_app()
 
