@@ -1,5 +1,6 @@
 import os
 from google import genai
+from google.genai import errors as genai_errors
 from flask import Blueprint, request, g, jsonify
 from middleware import authenticate_token
 from dotenv import load_dotenv
@@ -98,7 +99,15 @@ def chat():
             ),
         )
         reply = response.text.strip()
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'AI 응답 오류: {str(e)}'}), 500
+    except genai_errors.APIError as e:
+        # 한도 초과(429 RESOURCE_EXHAUSTED)는 원본 에러 대신 안내 문구로 변환
+        if getattr(e, 'code', None) == 429:
+            return jsonify({
+                'success': False,
+                'message': 'AI 사용량이 잠시 한도를 초과했어요. 잠시 후 다시 시도해 주세요. 🙏',
+            }), 429
+        return jsonify({'success': False, 'message': 'AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'}), 502
+    except Exception:
+        return jsonify({'success': False, 'message': 'AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'}), 500
 
     return jsonify({'success': True, 'reply': reply})
