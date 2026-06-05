@@ -183,8 +183,11 @@ def reset_password(user_id):
     if not user:
         return jsonify({'success': False, 'message': '사용자를 찾을 수 없습니다.'}), 404
 
-    if user['email'].lower() == MASTER_ADMIN_EMAIL and not _is_master_admin():
-        return jsonify({'success': False, 'message': '마스터 어드민 비밀번호는 변경할 수 없습니다.'}), 403
+    # 일반 어드민은 본인을 제외한 다른 어드민/마스터 어드민의 비밀번호를 변경할 수 없다.
+    target_is_admin = user['role'] == 'admin' or user['email'].lower() == MASTER_ADMIN_EMAIL
+    is_self         = user['id'] == g.user['id']
+    if target_is_admin and not is_self and not _is_master_admin():
+        return jsonify({'success': False, 'message': '다른 관리자의 비밀번호는 변경할 수 없습니다.'}), 403
 
     pw_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt(10)).decode()
     q_run(db, 'UPDATE users SET password_hash = ? WHERE id = ?', (pw_hash, user_id))
