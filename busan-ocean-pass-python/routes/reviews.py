@@ -3,7 +3,7 @@ import uuid
 from flask import Blueprint, g, jsonify, request
 
 from db import get_db, q_one, q_all, q_run
-from helpers import recalculate_user_stamps, get_localized_field
+from helpers import recalculate_user_stamps, get_localized_field, kst_date_str, today_kst_str
 from middleware import authenticate_token, optional_auth
 
 reviews_bp   = Blueprint('reviews', __name__)
@@ -39,8 +39,20 @@ def create_review():
 
     if not q_one(db, 'SELECT id FROM spots WHERE id = ? AND is_active = 1', (spot_id,)):
         return jsonify({'success': False, 'error': '존재하지 않는 명소입니다.'}), 404
-    if not q_one(db, 'SELECT id FROM stamp_logs WHERE user_id = ? AND spot_id = ?', (user_id, spot_id)):
+
+    # 스탬프 인증을 받은 사람만, 그것도 인증 당일(KST 기준)에만 리뷰를 작성할 수 있다.
+    # verified_at 은 UTC 'YYYY-MM-DD HH:MM:SS' 문자열(datetime.now() 기준)로 저장되므로
+    # KST 날짜로 변환해 비교한다.
+    stamp = q_one(db,
+        'SELECT verified_at FROM stamp_logs WHERE user_id = ? AND spot_id = ? '
+        'ORDER BY verified_at DESC LIMIT 1',
+        (user_id, spot_id)
+    )
+    if not stamp:
         return jsonify({'success': False, 'error': '방문 인증 후 리뷰를 작성할 수 있습니다.'}), 403
+    if kst_date_str(stamp['verified_at']) != today_kst_str():
+        return jsonify({'success': False, 'error': '방문 인증 당일에만 리뷰를 작성할 수 있습니다.'}), 403
+
     if q_one(db, 'SELECT id FROM reviews WHERE user_id = ? AND spot_id = ?', (user_id, spot_id)):
         return jsonify({'success': False, 'error': '이미 이 명소에 리뷰를 작성했습니다.'}), 409
 

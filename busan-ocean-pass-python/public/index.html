@@ -967,6 +967,25 @@
       font-size: .85rem;
     }
     .modal-review .review-meta { color: var(--text-light); font-size: .78rem; margin-top: 4px; }
+    .review-form {
+      background: var(--ocean-foam); border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 12px;
+    }
+    .review-form .review-stars { font-size: 1.5rem; letter-spacing: 2px; margin-bottom: 8px; user-select: none; }
+    .review-form .review-star { cursor: pointer; color: #fb8c00; }
+    .review-form textarea {
+      width: 100%; box-sizing: border-box; border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 10px; font-size: .85rem; resize: vertical;
+      font-family: inherit; margin-bottom: 8px;
+    }
+    .review-form input[type="url"] {
+      width: 100%; box-sizing: border-box; border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 10px; font-size: .85rem; margin-bottom: 10px;
+    }
+    .review-note {
+      color: var(--text-light); font-size: .82rem;
+      padding: 8px 0; margin-bottom: 4px;
+    }
     .modal-wiki {
       border: 1px solid var(--border); border-radius: 10px;
       padding: 10px 14px; margin-bottom: 8px;
@@ -1752,9 +1771,8 @@ function openSpotModal(id, cachedSpot) {
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
 
-  // 상세 API 호출
-  fetch(`/api/spots/${id}`)
-    .then(r => r.json())
+  // 상세 API 호출 (로그인 시 토큰을 보내야 can_review 가 내려옴)
+  api(`/api/spots/${id}`)
     .then(data => {
       if (!data.success) throw new Error(data.error || '조회 실패');
       renderModalBody(data.spot);
@@ -1793,6 +1811,26 @@ function renderModalBody(spot) {
         </div>`).join('')
     : '<div style="color:var(--text-light);font-size:.85rem;padding:8px 0">등록된 위키 정보가 없습니다.</div>';
 
+  // 리뷰 작성 영역: 스탬프 인증 당일에만 노출 (백엔드 can_review 기준)
+  let reviewWriteHtml = '';
+  if (spot.can_review) {
+    reviewWriteHtml = `
+      <div class="modal-section-title">리뷰 작성 <span style="font-weight:400;color:var(--text-light);font-size:.78rem">· 인증 당일 한정</span></div>
+      <div class="review-form">
+        <div class="review-stars" id="reviewStars">
+          ${[1,2,3,4,5].map(n => `<span class="review-star" data-val="${n}" onclick="setReviewRating(${n})">☆</span>`).join('')}
+        </div>
+        <textarea id="reviewContent" rows="3" placeholder="방문 후기를 남겨주세요 (최소 10자)"></textarea>
+        <input id="reviewPhoto" type="url" placeholder="사진 URL (선택)" />
+        <button class="btn btn-primary" style="width:100%;justify-content:center"
+          onclick="submitReview('${spot.id}')">리뷰 등록</button>
+      </div>`;
+  } else if (spot.my && spot.my.already_reviewed) {
+    reviewWriteHtml = `<div class="review-note">✅ 이미 이 명소에 리뷰를 작성하셨습니다.</div>`;
+  } else if (currentUser) {
+    reviewWriteHtml = `<div class="review-note">✍️ 스탬프 인증 당일에만 리뷰를 작성할 수 있습니다.</div>`;
+  }
+
   const mapsUrl = `https://map.kakao.com/link/map/${encodeURIComponent(spot.name)},${spot.latitude},${spot.longitude}`;
 
   body.innerHTML = `
@@ -1826,6 +1864,7 @@ function renderModalBody(spot) {
 
     <div class="modal-section-title">최근 리뷰</div>
     ${reviewsHtml}
+    ${reviewWriteHtml}
 
     <div class="modal-section-title">위키 정보</div>
     ${wikisHtml}
@@ -1836,6 +1875,45 @@ function renderModalBody(spot) {
     </button>
     <a class="modal-map-btn" href="${mapsUrl}" target="_blank" rel="noopener">🗺 카카오맵에서 보기</a>
   `;
+}
+
+// 리뷰 작성 별점 상태
+let selectedReviewRating = 0;
+
+function setReviewRating(n) {
+  selectedReviewRating = n;
+  document.querySelectorAll('#reviewStars .review-star').forEach(el => {
+    el.textContent = Number(el.dataset.val) <= n ? '★' : '☆';
+  });
+}
+
+async function submitReview(spotId) {
+  if (!currentToken) { showToast('로그인이 필요합니다.', 'error'); return; }
+  const content = (document.getElementById('reviewContent').value || '').trim();
+  const photo   = (document.getElementById('reviewPhoto').value || '').trim();
+
+  if (!selectedReviewRating) { showToast('별점을 선택해주세요.', 'error'); return; }
+  if (content.length < 10)   { showToast('리뷰는 최소 10자 이상 작성해주세요.', 'error'); return; }
+
+  try {
+    const data = await api('/api/reviews/', {
+      method: 'POST',
+      body: JSON.stringify({
+        spot_id:   spotId,
+        content:   content,
+        rating:    selectedReviewRating,
+        photo_url: photo || null,
+        language:  (currentUser && currentUser.language) || 'ko',
+      }),
+    });
+    let msg = '리뷰가 등록되었습니다!';
+    if (data.bonus_stamps_earned > 0) msg += ` (보너스 스탬프 +${data.bonus_stamps_earned})`;
+    showToast(msg, 'success');
+    selectedReviewRating = 0;
+    openSpotModal(spotId, window._spotsCache?.[spotId] || { id: spotId, category: 'beach' });
+  } catch (err) {
+    showToast(err.message || '리뷰 등록에 실패했습니다.', 'error');
+  }
 }
 
 function closeSpotModal() {

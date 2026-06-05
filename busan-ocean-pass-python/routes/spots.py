@@ -1,9 +1,11 @@
 from datetime import date
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from db import get_db, q_one, q_all
-from helpers import haversine_distance, get_congestion, get_localized_field, CONGESTION_WINDOW_MINUTES
+from helpers import (haversine_distance, get_congestion, get_localized_field,
+                     CONGESTION_WINDOW_MINUTES, kst_date_str, today_kst_str)
+from middleware import optional_auth
 
 spots_bp = Blueprint('spots', __name__)
 
@@ -111,6 +113,7 @@ def congestion(spot_id):
 
 
 @spots_bp.route('/<spot_id>', methods=['GET'])
+@optional_auth
 def spot_detail(spot_id):
     lang = request.args.get('lang', 'ko')
     db   = get_db()
@@ -164,4 +167,22 @@ def spot_detail(spot_id):
         'recent_reviews': reviews,
         'recent_wikis':   wikis,
     })
+
+    # 로그인 사용자에 한해 리뷰 작성 가능 여부를 함께 내려준다.
+    # (스탬프 인증을 받은 사람이, 인증 당일에만, 명소당 1회 작성 가능)
+    user_id = g.user['id'] if g.user else None
+    if user_id:
+        today_str       = today_kst_str()
+        last_stamp      = q_one(db,
+            'SELECT verified_at FROM stamp_logs WHERE user_id = ? AND spot_id = ? '
+            'ORDER BY verified_at DESC LIMIT 1', (user_id, spot_id))
+        stamped_today   = bool(last_stamp and kst_date_str(last_stamp['verified_at']) == today_str)
+        already_reviewed = bool(q_one(db,
+            'SELECT id FROM reviews WHERE user_id = ? AND spot_id = ?', (user_id, spot_id)))
+        formatted['my'] = {
+            'stamped_today':    stamped_today,
+            'already_reviewed': already_reviewed,
+        }
+        formatted['can_review'] = stamped_today and not already_reviewed
+
     return jsonify({'success': True, 'spot': formatted})

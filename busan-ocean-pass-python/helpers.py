@@ -10,6 +10,28 @@ CONGESTION_WINDOW_MINUTES = int(os.getenv('CONGESTION_WINDOW_MINUTES', '60'))
 CONGESTION_HIGH_THRESHOLD = int(os.getenv('CONGESTION_HIGH_THRESHOLD', '20'))
 CONGESTION_MID_THRESHOLD  = int(os.getenv('CONGESTION_MID_THRESHOLD',  '8'))
 
+KST_OFFSET = timedelta(hours=9)
+
+
+def kst_date_str(utc_value):
+    """UTC 'YYYY-MM-DD HH:MM:SS' 문자열(또는 datetime)을 KST 날짜('YYYY-MM-DD')로 변환한다.
+
+    타임스탬프는 모두 UTC(datetime.now() 기준)로 저장되므로, '당일' 판정 같은
+    한국 시간 기준 계산을 할 때는 +9시간을 적용한 날짜를 비교해야 한다.
+    """
+    if utc_value is None:
+        return None
+    if isinstance(utc_value, datetime):
+        dt = utc_value
+    else:
+        dt = datetime.strptime(str(utc_value)[:19], '%Y-%m-%d %H:%M:%S')
+    return (dt + KST_OFFSET).strftime('%Y-%m-%d')
+
+
+def today_kst_str():
+    """현재 시각(UTC 저장 기준)을 KST 날짜 문자열로 반환한다."""
+    return (datetime.now() + KST_OFFSET).strftime('%Y-%m-%d')
+
 
 def haversine_distance(lat1, lon1, lat2, lon2):
     R = 6_371_000
