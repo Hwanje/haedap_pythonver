@@ -101,11 +101,12 @@ def check_and_complete_missions(user_id, conn):
             continue
         if not all(sid in visited_set for sid in required_ids):
             continue
-        try:
-            conn.execute(
-                'INSERT INTO mission_completions (user_id, mission_id) VALUES (?, ?)',
-                (user_id, mission_id)
-            )
+        cur = conn.execute(
+            'INSERT INTO mission_completions (user_id, mission_id) VALUES (?, ?) '
+            'ON CONFLICT (user_id, mission_id) DO NOTHING',
+            (user_id, mission_id)
+        )
+        if cur.rowcount > 0:
             newly_completed.append({
                 'id': mission_id,
                 'name_ko': m[1],
@@ -113,9 +114,6 @@ def check_and_complete_missions(user_id, conn):
                 'bonus_stamps': m[4],
                 'bonus_reward': m[5],
             })
-        except Exception as e:
-            if 'UNIQUE' not in str(e):
-                print(f'[미션] INSERT 실패: {e}')
 
     if newly_completed:
         conn.commit()

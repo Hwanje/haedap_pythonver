@@ -19,6 +19,10 @@ services:
         value: 8
       - key: GPS_VERIFY_RADIUS_METERS
         value: 200
+      # Neon PostgreSQL connection string (대시보드에서 직접 입력)
+      # 예: postgresql://user:pass@ep-xxx-pooler.<region>.aws.neon.tech/dbname?sslmode=require
+      - key: DATABASE_URL
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: MASTER_ADMIN_EMAIL

@@ -123,7 +123,8 @@ def dashboard():
     popular_spots = q_all(db,
         'SELECT sl.spot_id, s.name_ko, s.name_en, s.category, COUNT(*) AS stamp_count '
         'FROM stamp_logs sl JOIN spots s ON s.id = sl.spot_id '
-        'GROUP BY sl.spot_id ORDER BY stamp_count DESC LIMIT 10'
+        'GROUP BY sl.spot_id, s.name_ko, s.name_en, s.category '
+        'ORDER BY stamp_count DESC LIMIT 10'
     )
 
     hourly_rows = q_all(db,

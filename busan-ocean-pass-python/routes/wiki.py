@@ -175,8 +175,13 @@ def helpful(post_id):
 
     milestone_reached = False
     try:
-        db.execute('INSERT INTO wiki_helpful_votes (user_id, wiki_post_id) VALUES (?, ?)',
-                   (g.user['id'], post_id))
+        cur = db.execute(
+            'INSERT INTO wiki_helpful_votes (user_id, wiki_post_id) VALUES (?, ?) '
+            'ON CONFLICT (user_id, wiki_post_id) DO NOTHING',
+            (g.user['id'], post_id))
+        if cur.rowcount == 0:
+            db.rollback()
+            return jsonify({'success': False, 'message': '이미 도움됨을 눌렀습니다.'}), 409
         db.execute('UPDATE wiki_posts SET helpful_count = helpful_count + 1 WHERE id = ?', (post_id,))
         updated = db.execute('SELECT helpful_count FROM wiki_posts WHERE id = ?', (post_id,)).fetchone()
         new_count = updated[0]
@@ -192,8 +197,6 @@ def helpful(post_id):
         db.commit()
     except Exception as e:
         db.rollback()
-        if 'UNIQUE' in str(e):
-            return jsonify({'success': False, 'message': '이미 도움됨을 눌렀습니다.'}), 409
         return jsonify({'success': False, 'message': '서버 오류가 발생했습니다.'}), 500
 
     if milestone_reached:

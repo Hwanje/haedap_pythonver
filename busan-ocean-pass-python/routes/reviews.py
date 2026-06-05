@@ -122,13 +122,15 @@ def like_review(review_id):
     if q_one(db, 'SELECT id FROM review_likes WHERE user_id = ? AND review_id = ?', (user_id, review_id)):
         return jsonify({'success': False, 'error': '이미 좋아요를 눌렀습니다.'}), 409
 
-    try:
-        db.execute('INSERT INTO review_likes (user_id, review_id) VALUES (?, ?)', (user_id, review_id))
-        db.commit()
-    except Exception as e:
-        if 'UNIQUE' in str(e):
-            return jsonify({'success': False, 'error': '이미 좋아요를 눌렀습니다.'}), 409
-        raise
+    cur = db.execute(
+        'INSERT INTO review_likes (user_id, review_id) VALUES (?, ?) '
+        'ON CONFLICT (user_id, review_id) DO NOTHING',
+        (user_id, review_id)
+    )
+    if cur.rowcount == 0:
+        db.rollback()
+        return jsonify({'success': False, 'error': '이미 좋아요를 눌렀습니다.'}), 409
+    db.commit()
 
     new_like_count = review['like_count'] + 1
     q_run(db, 'UPDATE reviews SET like_count = ? WHERE id = ?', (new_like_count, review_id))
