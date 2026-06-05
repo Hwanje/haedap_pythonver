@@ -112,6 +112,8 @@ def dashboard():
     total_reviews = db.execute('SELECT COUNT(*) FROM reviews').fetchone()[0]
     total_wiki    = db.execute("SELECT COUNT(*) FROM wiki_posts WHERE status = 'approved'").fetchone()[0]
     pending_wiki  = db.execute("SELECT COUNT(*) FROM wiki_posts WHERE status = 'pending'").fetchone()[0]
+    total_rewards  = db.execute('SELECT COUNT(*) FROM rewards').fetchone()[0]
+    total_missions = db.execute('SELECT COUNT(*) FROM mission_completions').fetchone()[0]
 
     today_users  = db.execute(
         'SELECT COUNT(*) FROM users WHERE created_at >= ?', (f'{today} 00:00:00',)
@@ -147,8 +149,10 @@ def dashboard():
                 'total_spots':   total_spots,
                 'total_stamps':  total_stamps,
                 'total_reviews': total_reviews,
-                'total_wiki':    total_wiki,
-                'pending_wiki':  pending_wiki,
+                'total_wiki':     total_wiki,
+                'pending_wiki':   pending_wiki,
+                'total_rewards':  total_rewards,
+                'total_missions': total_missions,
             },
             'today': {'new_users': today_users, 'new_stamps': today_stamps, 'date': today},
             'popular_spots':       popular_spots,
@@ -166,6 +170,8 @@ def list_users():
         'SELECT id, nickname, email, language, role, total_stamps, total_cashback, '
         'is_foreigner, is_tester, created_at FROM users ORDER BY created_at DESC LIMIT 200'
     )
+    for u in users:
+        u['is_master'] = 1 if (MASTER_ADMIN_EMAIL and u['email'].lower() == MASTER_ADMIN_EMAIL) else 0
     return jsonify({'success': True, 'count': len(users), 'data': users, 'is_master_admin': _is_master_admin()})
 
 
