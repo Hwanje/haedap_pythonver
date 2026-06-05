@@ -91,6 +91,41 @@ def generate():
     }), 201
 
 
+@qr_bp.route('/status/<token>', methods=['GET'])
+@authenticate_token
+def status(token):
+    """사용자 본인의 QR 토큰이 스캔(적립)됐는지 폴링용으로 조회한다.
+
+    관리자가 /scan 으로 처리하면 used_at 이 채워지고 stamp_logs 가 생성된다.
+    프론트는 이 엔드포인트를 폴링해 적립을 감지하고 QR 모달을 닫는다.
+    """
+    db = get_db()
+    qr = q_one(db,
+        'SELECT qt.id, qt.user_id, qt.spot_id, qt.used_at, qt.expires_at, '
+        's.name_ko AS spot_name '
+        'FROM qr_tokens qt JOIN spots s ON s.id = qt.spot_id WHERE qt.id = ?',
+        (token,)
+    )
+    if not qr:
+        return jsonify({'success': False, 'message': '유효하지 않은 토큰입니다.'}), 404
+    if qr['user_id'] != g.user['id']:
+        return jsonify({'success': False, 'message': '본인의 토큰만 조회할 수 있습니다.'}), 403
+
+    used   = qr['used_at'] is not None
+    result = {'success': True, 'used': used, 'spot_name': qr['spot_name']}
+    if used:
+        user = q_one(db, 'SELECT total_stamps FROM users WHERE id = ?', (qr['user_id'],))
+        result['total_stamps'] = user['total_stamps'] if user else 0
+        # 이 토큰 스캔으로 만들어진 스탬프 로그 (verified_at == used_at)
+        log = q_one(db,
+            'SELECT earned_count FROM stamp_logs '
+            'WHERE user_id = ? AND spot_id = ? AND verified_at = ? LIMIT 1',
+            (qr['user_id'], qr['spot_id'], qr['used_at'])
+        )
+        result['earned_count'] = log['earned_count'] if log else None
+    return jsonify(result)
+
+
 @qr_bp.route('/scan', methods=['POST'])
 @authenticate_token
 def scan():

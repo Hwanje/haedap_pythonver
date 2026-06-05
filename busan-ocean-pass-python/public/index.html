@@ -1176,6 +1176,8 @@
     <button class="tab-btn" onclick="switchTab('rewards',this)">리워드 카탈로그</button>
     <button class="tab-btn" onclick="switchTab('missions',this)">미션</button>
     <button class="tab-btn" onclick="switchTab('wiki',this)">📝 위키 제보</button>
+    <button class="tab-btn" onclick="switchTab('mypage',this)">🙋 마이페이지</button>
+    <button class="tab-btn" onclick="switchTab('settings',this)">⚙️ 설정</button>
   </div>
 
   <!-- 탭 패널: 명소 목록 -->
@@ -1317,6 +1319,94 @@
     </div>
 
   </div>
+
+  <!-- 탭 패널: 마이페이지 -->
+  <div id="tab-mypage" class="tab-panel">
+    <div class="section-title">🙋 마이페이지</div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>📍 내가 방문한 곳</h3></div>
+      <div id="mypage-visits" style="padding:6px 0">
+        <div class="spinner-wrap"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>⭐ 내가 쓴 리뷰</h3></div>
+      <div id="mypage-reviews" style="padding:6px 0">
+        <div class="spinner-wrap"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>📝 내 위키 제보</h3></div>
+      <div id="mypage-wikis" style="padding:6px 0">
+        <div class="spinner-wrap"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 탭 패널: 설정 -->
+  <div id="tab-settings" class="tab-panel">
+    <div class="section-title">⚙️ 설정</div>
+
+    <!-- 비밀번호 변경 -->
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>🔒 비밀번호 변경</h3></div>
+      <div style="padding:20px">
+        <form id="pw-form" onsubmit="changePassword(event)">
+          <div class="form-group">
+            <label for="pw-current">현재 비밀번호</label>
+            <input id="pw-current" type="password" placeholder="현재 비밀번호" required autocomplete="current-password"/>
+          </div>
+          <div class="form-group">
+            <label for="pw-new">새 비밀번호 <span style="font-weight:400;color:var(--text-light)">(6자 이상)</span></label>
+            <input id="pw-new" type="password" placeholder="새 비밀번호" required minlength="6" autocomplete="new-password"/>
+          </div>
+          <div class="form-group">
+            <label for="pw-new2">새 비밀번호 확인</label>
+            <input id="pw-new2" type="password" placeholder="새 비밀번호 재입력" required autocomplete="new-password"/>
+          </div>
+          <div id="pw-error" class="error-msg"></div>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px">변경하기</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 언어 변경 -->
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>🌐 언어 설정</h3></div>
+      <div style="padding:20px">
+        <div class="form-group">
+          <label for="lang-select">표시 언어</label>
+          <select id="lang-select" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px">
+            <option value="ko">한국어</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" onclick="changeLanguage()">언어 변경</button>
+      </div>
+    </div>
+
+    <!-- 회원 탈퇴 -->
+    <div class="card" style="border:1.5px solid var(--danger)">
+      <div class="card-header"><h3 style="color:var(--danger)">⚠️ 회원 탈퇴</h3></div>
+      <div style="padding:20px">
+        <p style="font-size:.85rem;color:var(--text-light);margin-bottom:14px">
+          탈퇴 시 보유 스탬프, 방문·리뷰·위키 기록이 <strong>모두 영구 삭제</strong>되며 복구할 수 없습니다.<br>
+          계속하려면 아래 칸에 <strong style="color:var(--danger)">회원탈퇴</strong> 를 정확히 입력하세요.
+        </p>
+        <div class="form-group">
+          <input id="delete-confirm" type="text" placeholder="회원탈퇴" oninput="onDeleteConfirmInput()"/>
+        </div>
+        <div id="delete-error" class="error-msg"></div>
+        <button id="delete-btn" class="btn btn-danger" style="width:100%;justify-content:center;padding:12px" disabled onclick="deleteAccount()">회원 탈퇴</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ─── 토스트 컨테이너 ─── -->
@@ -1541,6 +1631,8 @@ function switchTab(name, btn) {
     if (name === 'rewards')  loadRewardsTab();
     if (name === 'missions') loadMissionsTab();
     if (name === 'wiki')     loadWikiTab();
+    if (name === 'mypage')   loadMyPageTab();
+    if (name === 'settings') loadSettingsTab();
   } else if (name === 'map' && window._busanMap) {
     // 이미 초기화된 지도 크기 재조정 (탭 전환 시 필요)
     setTimeout(() => window._busanMap.invalidateSize(), 50);
@@ -2298,11 +2390,205 @@ async function submitWiki(e) {
 }
 
 // ─────────────────────────────────────────
+// 마이페이지
+// ─────────────────────────────────────────
+
+function loadMyPageTab() {
+  tabLoaded.mypage = true;
+  loadMyVisits();
+  loadMyReviews();
+  loadMyWikisMyPage();
+}
+
+async function loadMyVisits() {
+  const el = document.getElementById('mypage-visits');
+  try {
+    const data = await api('/api/stamps/my');
+    const logs = data.logs || [];
+    if (logs.length === 0) {
+      el.innerHTML = '<div class="empty-msg" style="padding:16px">아직 방문 인증한 곳이 없습니다.</div>';
+      return;
+    }
+    el.innerHTML = logs.map(l => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)">
+        <div style="font-size:1.6rem">${catIcon(l.spot_category)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600">${l.spot_name}</div>
+          <div style="font-size:.78rem;color:var(--text-light)">${catKo(l.spot_category)} · ${(l.verified_at||'').substring(0,16)}</div>
+        </div>
+        <div style="font-weight:700;color:var(--ocean-mid);white-space:nowrap">+${l.earned_count} 스탬프</div>
+      </div>`).join('');
+  } catch (err) {
+    el.innerHTML = `<div class="empty-msg" style="padding:16px">방문 기록을 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+async function loadMyReviews() {
+  const el = document.getElementById('mypage-reviews');
+  try {
+    const data = await api('/api/reviews/my');
+    const reviews = data.reviews || [];
+    if (reviews.length === 0) {
+      el.innerHTML = '<div class="empty-msg" style="padding:16px">아직 작성한 리뷰가 없습니다.</div>';
+      return;
+    }
+    el.innerHTML = reviews.map(r => `
+      <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="font-weight:600">${r.spot_name}</div>
+          <div style="color:#fb8c00;white-space:nowrap">${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</div>
+        </div>
+        <div style="font-size:.85rem;margin:6px 0;color:var(--text-dark)">${r.content}</div>
+        <div style="font-size:.76rem;color:var(--text-light)">${(r.created_at||'').substring(0,10)} · 👍 ${r.like_count||0}명 도움${r.bonus_stamp_given?` · 보너스 +${r.bonus_stamp_given}`:''}</div>
+      </div>`).join('');
+  } catch (err) {
+    el.innerHTML = `<div class="empty-msg" style="padding:16px">리뷰를 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+async function loadMyWikisMyPage() {
+  const el = document.getElementById('mypage-wikis');
+  try {
+    const data = await api('/api/wiki/my');
+    const posts = data.data || [];
+    if (posts.length === 0) {
+      el.innerHTML = '<div class="empty-msg" style="padding:16px">아직 제보한 위키가 없습니다.</div>';
+      return;
+    }
+    el.innerHTML = posts.map(p => {
+      const statusCls = { pending:'wiki-status-pending', approved:'wiki-status-approved', rejected:'wiki-status-rejected' }[p.status] || '';
+      const statusLbl = { pending:'심사 대기', approved:'승인됨', rejected:'반려됨' }[p.status] || p.status;
+      const rewardHtml = p.status === 'approved' && p.reward_stamps
+        ? `<span style="color:var(--wave-teal);font-size:.76rem"> · +${p.reward_stamps} 스탬프</span>` : '';
+      return `
+      <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="min-width:0">
+            <span class="wiki-cat-chip">${WIKI_CAT_ICON[p.category]||''} ${WIKI_CAT_LABEL[p.category]||p.category}</span>
+            <div class="wiki-card-title">${p.title}</div>
+            <div class="wiki-card-meta">${p.spot_name_ko ? p.spot_name_ko+' · ' : ''}${(p.created_at||'').substring(0,10)}${rewardHtml}</div>
+          </div>
+          <span class="wiki-status-badge ${statusCls}" style="flex-shrink:0">${statusLbl}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    el.innerHTML = `<div class="empty-msg" style="padding:16px">위키를 불러오지 못했습니다: ${err.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────
+// 설정
+// ─────────────────────────────────────────
+
+function loadSettingsTab() {
+  tabLoaded.settings = true;
+  // 현재 언어를 셀렉트에 반영
+  const sel = document.getElementById('lang-select');
+  if (sel && currentUser) sel.value = currentUser.language || 'ko';
+}
+
+async function changePassword(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('pw-error');
+  errEl.style.display = 'none';
+  const current = document.getElementById('pw-current').value;
+  const newPw   = document.getElementById('pw-new').value;
+  const newPw2  = document.getElementById('pw-new2').value;
+
+  if (newPw.length < 6) {
+    errEl.textContent = '새 비밀번호는 6자 이상이어야 합니다.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (newPw !== newPw2) {
+    errEl.textContent = '새 비밀번호가 일치하지 않습니다.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    await api('/api/auth/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ current_password: current, new_password: newPw }),
+    });
+    document.getElementById('pw-form').reset();
+    showToast('비밀번호가 변경되었습니다.', 'success');
+  } catch (err) {
+    errEl.textContent = err.message || '비밀번호 변경에 실패했습니다.';
+    errEl.style.display = 'block';
+  }
+}
+
+async function changeLanguage() {
+  const language = document.getElementById('lang-select').value;
+  try {
+    const data = await api('/api/auth/language', {
+      method: 'PATCH',
+      body: JSON.stringify({ language }),
+    });
+    if (currentUser) currentUser.language = data.language;
+    showToast('언어 설정이 변경되었습니다.', 'success');
+  } catch (err) {
+    showToast(err.message || '언어 변경에 실패했습니다.', 'error');
+  }
+}
+
+function onDeleteConfirmInput() {
+  const val = document.getElementById('delete-confirm').value.trim();
+  document.getElementById('delete-btn').disabled = (val !== '회원탈퇴');
+}
+
+async function deleteAccount() {
+  const errEl = document.getElementById('delete-error');
+  errEl.style.display = 'none';
+  const confirm = document.getElementById('delete-confirm').value.trim();
+  if (confirm !== '회원탈퇴') {
+    errEl.textContent = '"회원탈퇴" 를 정확히 입력해 주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!window.confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+
+  try {
+    await api('/api/auth/me', {
+      method: 'DELETE',
+      body: JSON.stringify({ confirm }),
+    });
+    showToast('회원 탈퇴가 완료되었습니다.', 'success');
+    // 로컬 세션 정리 후 로그인 화면으로
+    localStorage.removeItem('op_token');
+    currentToken = null;
+    currentUser  = null;
+    tabLoaded    = {};
+    setTimeout(() => location.reload(), 1200);
+  } catch (err) {
+    errEl.textContent = err.message || '회원 탈퇴에 실패했습니다.';
+    errEl.style.display = 'block';
+  }
+}
+
+// ─────────────────────────────────────────
 // QR 코드 모달
 // ─────────────────────────────────────────
 
 let _qrTimerInterval = null;
+let _qrPollInterval  = null;
 let _currentQrToken  = null;
+
+/** 헤더 배지·홈 배너의 스탬프 개수를 즉시 갱신한다. */
+function updateStampDisplay(total) {
+  if (typeof total !== 'number') return;
+  if (currentUser) currentUser.total_stamps = total;
+  const badge  = document.getElementById('user-stamp-badge');
+  const banner = document.getElementById('banner-stamps');
+  if (badge)  badge.textContent  = `${total} 스탬프`;
+  if (banner) banner.textContent = total;
+  // 스탬프 수에 의존하는 탭들은 다음 진입 시 다시 로드되도록 무효화
+  tabLoaded.progress = false;
+  tabLoaded.spots    = false;
+  tabLoaded.rewards  = false;
+}
 
 function switchQrTab(tab) {
   document.getElementById('qr-panel-qr').classList.toggle('active',    tab === 'qr');
@@ -2337,6 +2623,7 @@ async function openQrModal(spotId, spotName, baseStamps) {
   document.getElementById('qr-token-text').textContent = '—';
   _currentQrToken = null;
   clearInterval(_qrTimerInterval);
+  clearInterval(_qrPollInterval);
 
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -2382,6 +2669,7 @@ async function openQrModal(spotId, spotName, baseStamps) {
     const update = () => {
       if (remaining <= 0) {
         clearInterval(_qrTimerInterval);
+        clearInterval(_qrPollInterval);
         timerEl.textContent = '만료됨 — 닫고 다시 발급하세요';
         timerEl.classList.add('warning');
         return;
@@ -2395,6 +2683,23 @@ async function openQrModal(spotId, spotName, baseStamps) {
     update();
     _qrTimerInterval = setInterval(update, 1000);
 
+    // 적립 감지 폴링 — 관리자가 QR을 스캔하면 자동으로 모달을 닫고 반영한다.
+    const pollToken = _currentQrToken;
+    _qrPollInterval = setInterval(async () => {
+      if (_currentQrToken !== pollToken) { clearInterval(_qrPollInterval); return; }
+      try {
+        const st = await api(`/api/qr/status/${pollToken}`);
+        if (st.used) {
+          clearInterval(_qrPollInterval);
+          clearInterval(_qrTimerInterval);
+          updateStampDisplay(st.total_stamps);
+          closeQrModal();
+          const earned = st.earned_count ? ` (+${st.earned_count}개)` : '';
+          showToast(`스탬프가 적립되었습니다!${earned}`, 'success');
+        }
+      } catch (_) { /* 일시적 오류는 무시하고 다음 폴링 */ }
+    }, 2500);
+
   } catch (err) {
     wrap.innerHTML = `<div style="padding:24px;color:var(--danger);font-size:.88rem">${err.message}</div>`;
   }
@@ -2404,6 +2709,7 @@ function closeQrModal() {
   document.getElementById('qr-modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
   clearInterval(_qrTimerInterval);
+  clearInterval(_qrPollInterval);
 }
 
 function handleQrOverlayClick(e) {

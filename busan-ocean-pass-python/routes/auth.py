@@ -19,6 +19,9 @@ JWT_SECRET     = os.getenv('JWT_SECRET')
 JWT_EXPIRES_DAYS = int(os.getenv('JWT_EXPIRES_DAYS', '7'))
 EMAIL_RE = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
 SUPPORTED_LANGS = {'ko', 'en', 'ja', 'zh'}
+PASSWORD_MIN_LEN = 6
+DELETE_CONFIRM_PHRASE = '회원탈퇴'
+MASTER_ADMIN_EMAIL = os.getenv('MASTER_ADMIN_EMAIL', '').strip().lower()
 
 
 def _make_token(user):
@@ -121,3 +124,73 @@ def me():
     if not user:
         return jsonify({'success': False, 'error': '사용자를 찾을 수 없습니다.'}), 404
     return jsonify({'success': True, 'user': user})
+
+
+@auth_bp.route('/password', methods=['PATCH'])
+@authenticate_token
+def change_password():
+    data    = request.get_json() or {}
+    current = data.get('current_password', '')
+    new_pw  = data.get('new_password', '')
+
+    if not current or not new_pw:
+        return jsonify({'success': False, 'error': '현재 비밀번호와 새 비밀번호를 모두 입력해 주세요.'}), 400
+    if not isinstance(new_pw, str) or len(new_pw) < PASSWORD_MIN_LEN:
+        return jsonify({'success': False, 'error': f'새 비밀번호는 최소 {PASSWORD_MIN_LEN}자 이상이어야 합니다.'}), 400
+
+    db   = get_db()
+    user = q_one(db, 'SELECT id, password_hash FROM users WHERE id = ?', (g.user['id'],))
+    if not user:
+        return jsonify({'success': False, 'error': '사용자를 찾을 수 없습니다.'}), 404
+    if not bcrypt.checkpw(current.encode(), user['password_hash'].encode()):
+        return jsonify({'success': False, 'error': '현재 비밀번호가 올바르지 않습니다.'}), 401
+    if bcrypt.checkpw(new_pw.encode(), user['password_hash'].encode()):
+        return jsonify({'success': False, 'error': '새 비밀번호가 기존 비밀번호와 동일합니다.'}), 400
+
+    new_hash = bcrypt.hashpw(new_pw.encode(), bcrypt.gensalt(10)).decode()
+    q_run(db, 'UPDATE users SET password_hash = ? WHERE id = ?', (new_hash, g.user['id']))
+    print(f'[인증] 비밀번호 변경 — userId: {g.user["id"]}')
+    return jsonify({'success': True, 'message': '비밀번호가 변경되었습니다.'})
+
+
+@auth_bp.route('/language', methods=['PATCH'])
+@authenticate_token
+def change_language():
+    data     = request.get_json() or {}
+    language = data.get('language', '')
+    if language not in SUPPORTED_LANGS:
+        return jsonify({'success': False, 'error': '지원하지 않는 언어입니다.'}), 400
+
+    db = get_db()
+    q_run(db, 'UPDATE users SET language = ? WHERE id = ?', (language, g.user['id']))
+    return jsonify({'success': True, 'message': '언어 설정이 변경되었습니다.', 'language': language})
+
+
+@auth_bp.route('/me', methods=['DELETE'])
+@authenticate_token
+def delete_account():
+    data    = request.get_json() or {}
+    confirm = (data.get('confirm') or '').strip()
+
+    if confirm != DELETE_CONFIRM_PHRASE:
+        return jsonify({
+            'success': False,
+            'error': f'확인을 위해 "{DELETE_CONFIRM_PHRASE}" 를 정확히 입력해 주세요.',
+        }), 400
+
+    # 마스터 관리자 계정은 서버 기동 시 자동 동기화되므로 탈퇴를 막는다.
+    if MASTER_ADMIN_EMAIL and g.user.get('email', '').lower() == MASTER_ADMIN_EMAIL:
+        return jsonify({'success': False, 'error': '마스터 관리자 계정은 탈퇴할 수 없습니다.'}), 403
+
+    db      = get_db()
+    user_id = g.user['id']
+    if not q_one(db, 'SELECT id FROM users WHERE id = ?', (user_id,)):
+        return jsonify({'success': False, 'error': '사용자를 찾을 수 없습니다.'}), 404
+
+    # qr_tokens.scanned_by 는 CASCADE 대상이 아니므로 먼저 정리한 뒤 사용자를 삭제한다.
+    # 나머지 연관 데이터(stamp_logs, reviews, wiki_posts 등)는 ON DELETE CASCADE 로 함께 삭제된다.
+    db.execute('UPDATE qr_tokens SET scanned_by = NULL WHERE scanned_by = ?', (user_id,))
+    db.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    db.commit()
+    print(f'[인증] 회원 탈퇴 — userId: {user_id}')
+    return jsonify({'success': True, 'message': '회원 탈퇴가 완료되었습니다.'})
