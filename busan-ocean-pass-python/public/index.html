@@ -114,6 +114,44 @@
     .btn-success  { background: var(--success); color: #fff; }
     .btn-sm       { padding: 5px 12px; font-size: .8rem; }
 
+    /* 햄버거 메뉴 버튼 (모바일 전용) */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+      width: 40px;
+      height: 40px;
+      padding: 8px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .hamburger span {
+      display: block;
+      height: 2.5px;
+      width: 100%;
+      background: #fff;
+      border-radius: 2px;
+      transition: transform .25s, opacity .2s;
+    }
+    .hamburger.active span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+    .hamburger.active span:nth-child(2) { opacity: 0; }
+    .hamburger.active span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+    /* 메뉴 열림 시 배경 딤 (모바일 전용) */
+    .nav-backdrop {
+      display: none;
+      position: fixed;
+      inset: 64px 0 0 0;
+      background: rgba(10,35,66,.4);
+      z-index: 94;
+    }
+
+    /* 모바일 메뉴 내 로그아웃 항목 (데스크톱 숨김) */
+    .nav-logout { display: none; }
+
     /* ─────────────────────────────────────────
        로그인 화면
     ───────────────────────────────────────── */
@@ -637,10 +675,69 @@
        반응형
     ───────────────────────────────────────── */
     @media (max-width: 600px) {
-      .welcome-banner { padding: 18px 20px; }
-      .tab-btn { font-size: .8rem; min-width: 80px; }
       .spots-grid { grid-template-columns: 1fr; }
       .rewards-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── 모바일: 햄버거 메뉴 + 레이아웃 최적화 ─── */
+    @media (max-width: 768px) {
+      header { padding: 0 14px; }
+      .logo { font-size: 1.08rem; gap: 8px; }
+      .logo-icon { font-size: 1.35rem; }
+      .logo-sub { display: none; }
+
+      /* 헤더에서는 햄버거만 노출, 닉네임·로그아웃은 메뉴로 이동 */
+      .hamburger { display: flex; }
+      #header-nickname { display: none; }
+      #header-user > .btn-outline { display: none; }
+      #header-user { gap: 8px; }
+      #user-stamp-badge { font-size: .8rem; padding: 4px 10px; }
+
+      #dashboard { padding: 16px 14px; }
+
+      .welcome-banner {
+        padding: 18px 18px;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+      }
+      .welcome-banner h2 { font-size: 1.15rem; }
+      .stamp-count { width: 100%; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+      .stamp-count .num { font-size: 1.6rem; }
+      .stamp-count .label { margin-top: 0; }
+
+      /* 탭 → 헤더 아래로 내려오는 슬라이드 메뉴 */
+      .tabs {
+        position: fixed;
+        top: 64px; left: 0; right: 0;
+        flex-direction: column;
+        gap: 2px;
+        margin: 0;
+        padding: 8px;
+        border-radius: 0 0 var(--radius) var(--radius);
+        max-height: calc(100vh - 64px);
+        overflow-y: auto;
+        transform: translateY(-120%);
+        transition: transform .25s ease;
+        z-index: 95;
+        box-shadow: 0 10px 24px rgba(10,35,66,.25);
+      }
+      .tabs.open { transform: translateY(0); }
+      .tab-btn {
+        flex: none;
+        width: 100%;
+        min-width: 0;
+        text-align: left;
+        padding: 14px 16px;
+        font-size: .95rem;
+      }
+      .nav-backdrop.open { display: block; }
+      .nav-logout {
+        display: block;
+        color: var(--danger);
+        border-top: 1px solid var(--border);
+        margin-top: 4px;
+      }
     }
 
     /* 섹션 제목 */
@@ -1077,8 +1174,14 @@
     <span id="user-stamp-badge">0 스탬프</span>
     <span id="header-nickname" style="font-size:.9rem;opacity:.85"></span>
     <button class="btn btn-outline btn-sm" onclick="logout()">로그아웃</button>
+    <button class="hamburger" id="nav-toggle" onclick="toggleNav()" aria-label="메뉴 열기" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </header>
+
+<!-- 모바일 메뉴 배경 딤 -->
+<div class="nav-backdrop" id="nav-backdrop" onclick="closeNav()"></div>
 
 <!-- ─── 로그인 화면 ─── -->
 <div id="login-screen">
@@ -1178,6 +1281,7 @@
     <button class="tab-btn" onclick="switchTab('wiki',this)">📝 위키 제보</button>
     <button class="tab-btn" onclick="switchTab('mypage',this)">🙋 마이페이지</button>
     <button class="tab-btn" onclick="switchTab('settings',this)">⚙️ 설정</button>
+    <button class="tab-btn nav-logout" onclick="logout()">🚪 로그아웃</button>
   </div>
 
   <!-- 탭 패널: 명소 목록 -->
@@ -1570,6 +1674,7 @@ async function handleLogin(e) {
 
 /** 로그아웃 */
 function logout() {
+  closeNav();
   localStorage.removeItem('op_token');
   currentToken = null;
   currentUser  = null;
@@ -1637,6 +1742,29 @@ function switchTab(name, btn) {
     // 이미 초기화된 지도 크기 재조정 (탭 전환 시 필요)
     setTimeout(() => window._busanMap.invalidateSize(), 50);
   }
+
+  closeNav();  // 모바일 메뉴 열려있으면 닫기
+}
+
+// ─────────────────────────────────────────
+// 햄버거 메뉴 (모바일)
+// ─────────────────────────────────────────
+
+function toggleNav() {
+  const tabs = document.querySelector('.tabs');
+  const ham  = document.getElementById('nav-toggle');
+  const bd   = document.getElementById('nav-backdrop');
+  const open = tabs.classList.toggle('open');
+  if (ham) { ham.classList.toggle('active', open); ham.setAttribute('aria-expanded', open); }
+  if (bd)  bd.classList.toggle('open', open);
+}
+
+function closeNav() {
+  document.querySelector('.tabs')?.classList.remove('open');
+  const ham = document.getElementById('nav-toggle');
+  const bd  = document.getElementById('nav-backdrop');
+  if (ham) { ham.classList.remove('active'); ham.setAttribute('aria-expanded', false); }
+  if (bd)  bd.classList.remove('open');
 }
 
 // ─────────────────────────────────────────
@@ -2720,6 +2848,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeQrModal();
     closeSpotModal();
+    closeNav();
   }
 });
 
