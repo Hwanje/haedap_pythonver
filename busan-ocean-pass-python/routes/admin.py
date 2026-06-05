@@ -194,9 +194,6 @@ def reset_password(user_id):
 @admin_bp.route('/users/<user_id>/tester', methods=['PATCH'])
 @require_admin
 def set_tester(user_id):
-    if not _is_master_admin():
-        return jsonify({'success': False, 'message': '마스터 어드민만 테스터를 지정할 수 있습니다.'}), 403
-
     data      = request.get_json() or {}
     is_tester = 1 if data.get('is_tester') else 0
     db        = get_db()
@@ -214,9 +211,6 @@ def set_tester(user_id):
 @admin_bp.route('/users/tester-by-email', methods=['POST'])
 @require_admin
 def set_tester_by_email():
-    if not _is_master_admin():
-        return jsonify({'success': False, 'message': '마스터 어드민만 테스터를 지정할 수 있습니다.'}), 403
-
     data      = request.get_json() or {}
     email     = data.get('email', '').strip().lower()
     is_tester = 1 if data.get('is_tester') else 0
@@ -238,4 +232,34 @@ def set_tester_by_email():
         'message':   f'{user["nickname"]}({user["email"]}) 계정을 {action}했습니다.',
         'user_id':   user['id'],
         'is_tester': is_tester,
+    })
+
+
+@admin_bp.route('/users/role-by-email', methods=['POST'])
+@require_admin
+def set_role_by_email():
+    if not _is_master_admin():
+        return jsonify({'success': False, 'message': '마스터 어드민만 권한을 변경할 수 있습니다.'}), 403
+
+    data     = request.get_json() or {}
+    email    = data.get('email', '').strip().lower()
+    role     = 'admin' if data.get('is_admin') else 'user'
+
+    if not email:
+        return jsonify({'success': False, 'message': '이메일이 필요합니다.'}), 400
+
+    db   = get_db()
+    user = q_one(db, 'SELECT id, email, nickname, role FROM users WHERE email = ?', (email,))
+    if not user:
+        return jsonify({'success': False, 'message': '해당 이메일 계정을 찾을 수 없습니다.'}), 404
+    if user['email'].lower() == MASTER_ADMIN_EMAIL:
+        return jsonify({'success': False, 'message': '마스터 어드민 계정의 권한은 변경할 수 없습니다.'}), 400
+
+    q_run(db, 'UPDATE users SET role = ? WHERE id = ?', (role, user['id']))
+    action = '관리자로 승격' if role == 'admin' else '일반 사용자로 강등'
+    return jsonify({
+        'success': True,
+        'message': f'{user["nickname"]}({user["email"]}) 계정을 {action}했습니다.',
+        'user_id': user['id'],
+        'role':    role,
     })

@@ -845,9 +845,8 @@ async function loadUsers() {
     const isMaster = data.is_master_admin || false;
 
     container.innerHTML = `
-      ${isMaster ? `
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fff8e1">
-        <div style="font-size:.85rem;font-weight:700;color:#e65100;margin-bottom:10px">🔑 마스터 어드민 — 테스터 계정 지정</div>
+        <div style="font-size:.85rem;font-weight:700;color:#e65100;margin-bottom:10px">🧪 테스터 계정 지정</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <input id="tester-email-input" type="email" placeholder="지정할 계정 이메일"
             style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem"/>
@@ -855,7 +854,17 @@ async function loadUsers() {
           <button class="btn btn-danger  btn-sm" onclick="setTesterByEmail(false)">테스터 해제</button>
         </div>
         <div id="tester-result" style="margin-top:8px;font-size:.8rem;color:var(--text-mid)"></div>
-      </div>` : ''}
+
+        ${isMaster ? `
+        <div style="font-size:.85rem;font-weight:700;color:#e65100;margin:16px 0 10px">👮 마스터 어드민 — 관리자 권한 지정</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input id="role-email-input" type="email" placeholder="지정할 계정 이메일"
+            style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem"/>
+          <button class="btn btn-primary btn-sm" onclick="setRoleByEmail(true)">관리자 승격</button>
+          <button class="btn btn-danger  btn-sm" onclick="setRoleByEmail(false)">관리자 해제</button>
+        </div>
+        <div id="role-result" style="margin-top:8px;font-size:.8rem;color:var(--text-mid)"></div>` : ''}
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -929,6 +938,28 @@ async function setTesterByEmail(isTester) {
     const data = await api('/api/admin/users/tester-by-email', {
       method: 'POST',
       body: JSON.stringify({ email, is_tester: isTester }),
+    });
+    result.style.color = 'var(--success)';
+    result.textContent = data.message;
+    showToast(data.message, 'success');
+    tabLoaded.users = false;
+    loadUsers();
+  } catch (e) {
+    result.style.color = 'var(--danger)';
+    result.textContent = e.message;
+    showToast(e.message, 'error');
+  }
+}
+
+// 관리자 권한 지정 (마스터 어드민 전용)
+async function setRoleByEmail(isAdmin) {
+  const email  = document.getElementById('role-email-input').value.trim();
+  const result = document.getElementById('role-result');
+  if (!email) { showToast('이메일을 입력하세요.', 'error'); return; }
+  try {
+    const data = await api('/api/admin/users/role-by-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, is_admin: isAdmin }),
     });
     result.style.color = 'var(--success)';
     result.textContent = data.message;
