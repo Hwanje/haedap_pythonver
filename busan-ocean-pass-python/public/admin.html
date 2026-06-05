@@ -408,7 +408,7 @@
     <form id="login-form" onsubmit="handleLogin(event)">
       <div class="form-group">
         <label>이메일</label>
-        <input id="email" type="email" placeholder="admin@busan-ocean.kr" required />
+        <input id="email" type="email" placeholder="이메일 입력" required />
       </div>
       <div class="form-group">
         <label>비밀번호</label>
@@ -518,6 +518,7 @@ const DEFAULT_REWARD_STAMPS_FRONT = { event:10, hidden_spot:15, safety:20, tip:5
 
 let currentToken = localStorage.getItem('admin_token') || null;
 let currentUser  = null;
+let currentIsMaster = false;
 let tabLoaded    = {};
 
 // ─────────────────────────────────────────
@@ -845,6 +846,7 @@ async function loadUsers() {
     }
 
     const isMaster = data.is_master_admin || false;
+    currentIsMaster = isMaster;
 
     container.innerHTML = `
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);background:#fff8e1">
@@ -897,7 +899,7 @@ async function loadUsers() {
                 <td style="font-weight:700;color:var(--navy-mid)">${u.total_stamps || 0}</td>
                 <td style="color:var(--text-light);font-size:.8rem">${u.created_at ? u.created_at.substring(0, 10) : '-'}</td>
                 <td>
-                  <button class="btn btn-primary btn-xs" onclick="openResetPassword('${u.id}','${u.nickname.replace(/'/g,"\\'")}')">
+                  <button class="btn btn-primary btn-xs" onclick="openResetPassword('${u.id}','${u.nickname.replace(/'/g,"\\'")}',${u.is_master ? 'true' : 'false'})">
                     비밀번호 재설정
                   </button>
                 </td>
@@ -916,7 +918,11 @@ async function loadUsers() {
 // 비밀번호 재설정
 // ─────────────────────────────────────────
 
-function openResetPassword(userId, nickname) {
+function openResetPassword(userId, nickname, isMasterTarget) {
+  if (isMasterTarget && !currentIsMaster) {
+    alert('총관리자 계정의 비밀번호는 변경할 수 없습니다.');
+    return;
+  }
   const newPw = prompt(`${nickname} 계정의 새 비밀번호를 입력하세요 (6자 이상):`);
   if (!newPw) return;
   if (newPw.length < 6) { showToast('비밀번호는 6자 이상이어야 합니다.', 'error'); return; }
